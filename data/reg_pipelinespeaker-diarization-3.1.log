@@ -1,0 +1,19 @@
+DEBUG:__main__:pyannote/speaker-diarization-3.1 ...  
+DEBUG:urllib3.connectionpool:Starting new HTTPS connection (1): huggingface.co:443
+DEBUG:urllib3.connectionpool:https://huggingface.co:443 "HEAD /pyannote/speaker-diarization-3.1/resolve/main/config.yaml HTTP/11" 401 0
+DEBUG:speechbrain.utils.checkpoints:Registered checkpoint save hook for _speechbrain_save
+DEBUG:speechbrain.utils.checkpoints:Registered checkpoint load hook for _speechbrain_load
+DEBUG:speechbrain.utils.checkpoints:Registered checkpoint save hook for save
+DEBUG:speechbrain.utils.checkpoints:Registered checkpoint load hook for load
+INFO:speechbrain.utils.quirks:Applied quirks (see `speechbrain.utils.quirks`): [disable_jit_profiling, allow_tf32]
+INFO:speechbrain.utils.quirks:Excluded quirks specified by the `SB_DISABLE_QUIRKS` environment (comma-separated list): []
+DEBUG:speechbrain.utils.checkpoints:Registered checkpoint save hook for _save
+DEBUG:speechbrain.utils.checkpoints:Registered checkpoint load hook for _recover
+DEBUG:urllib3.connectionpool:https://huggingface.co:443 "HEAD /pyannote/segmentation-3.0/resolve/main/pytorch_model.bin HTTP/11" 401 0
+DEBUG:urllib3.connectionpool:https://huggingface.co:443 "HEAD /pyannote/segmentation-3.0/resolve/main/config.yaml HTTP/11" 401 0
+DEBUG:fsspec.local:open file: C:/Users/daniel/.cache/torch/pyannote/models--pyannote--segmentation-3.0/snapshots/e66f3d3b9eb0873085418a7b813d3b369bf160bb/pytorch_model.bin
+DEBUG:fsspec.local:open file: C:/Users/daniel/.cache/torch/pyannote/models--pyannote--segmentation-3.0/snapshots/e66f3d3b9eb0873085418a7b813d3b369bf160bb/pytorch_model.bin
+DEBUG:urllib3.connectionpool:https://huggingface.co:443 "HEAD /pyannote/wespeaker-voxceleb-resnet34-LM/resolve/main/pytorch_model.bin HTTP/11" 401 0
+DEBUG:urllib3.connectionpool:https://huggingface.co:443 "HEAD /pyannote/wespeaker-voxceleb-resnet34-LM/resolve/main/config.yaml HTTP/11" 401 0
+DEBUG:fsspec.local:open file: C:/Users/daniel/.cache/torch/pyannote/models--pyannote--wespeaker-voxceleb-resnet34-LM/snapshots/837717ddb9ff5507820346191109dc79c958d614/pytorch_model.bin
+DEBUG:fsspec.local:open file: C:/Users/daniel/.cache/torch/pyannote/models--pyannote--wespeaker-voxceleb-resnet34-LM/snapshots/837717ddb9ff5507820346191109dc79c958d614/pytorch_model.bin
