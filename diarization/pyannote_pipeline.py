@@ -16,7 +16,6 @@ class PipelineVersions(Enum):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Pyannote PIPELINE Audio Speaker Diarization')
     parser.add_argument('-vm', '--version_model', type=str, default=PipelineVersions.V3_1, help='Pipeline version')  
-    parser.add_argument('-hft', '--huggingface_token', type=str, default='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', help='Huggingface token')
     
     args = parser.parse_args()  
     if type(args.version_model) == PipelineVersions:
