@@ -1,3 +1,5 @@
+## Pipeline de Pyannote la cual está usando por defecto un modelo de SpeechBrain ###
+
 # 1. visit hf.co/pyannote/speaker-diarization and accept user conditions
 # 2. visit hf.co/pyannote/segmentation and accept user conditions
 # 3. visit hf.co/settings/tokens to create an access token
