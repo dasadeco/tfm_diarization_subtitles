@@ -1,10 +1,12 @@
 from moviepy import AudioFileClip
-import os, argparse
+from pydub import AudioSegment
+import os, shutil
+import argparse
 import logging
-import shutil
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
-logging.basicConfig(filename='./data/converter_audio.log', encoding='utf-8', level=logging.DEBUG)
+logging.basicConfig(filename=f'./data/converter_audio_{datetime.now().strftime("%Y%m%d")}.log', encoding='utf-8', level=logging.DEBUG) 
 
 class ConverterToAudio:
     def __init__(self, video_media_path, audio_media_path, ouput_media_path = './data/media'):
@@ -13,40 +15,53 @@ class ConverterToAudio:
         self.ouput_media_path = ouput_media_path
         
     def convert(self):
-        if self.audio_media_path is not None:
-            # input_audio_path = args.audio_media_path
+       try: 
+        if self.audio_media_path is None:
             # Existe un path de entrada de audio ??
-            pass
-        else:
             os.mkdir('audio', exist_ok=True)
             self.audio_media_path = os.path.join(os.getcwd(), 'audio')       
+            logger.warning(f"Creamos un path de audio de entrada: {self.audio_media_path} puesto que no se ha suministrado ninguno.")
 
         if self.video_media_path is not None:
-            #input_path = args.video_media_path
             # Existe un path de entrada de video ??            
             if not os.path.exists(self.video_media_path):
                 logger.warning(f"Path de entrada: {self.video_media_path} con videos para convertir, no existe.")
-                #exit(1)
             video_files = [video for video in os.listdir(self.video_media_path) if video.endswith(".mp4")]
             # Convert the video to audio
-            for video_file in video_files:
-                audio_file = video_file.replace('.mp4', '.wav')
-                self.convertVideoToAudio(os.path.join(self.video_media_path, video_file), os.path.join(self.audio_media_path, audio_file))
-                logger.info(f"Converted {video_file} to {audio_file}.")
+            for video_file in video_files:                
+                self.convertVideoToAudio(video_file)
+                
+        for m4a_audio_file in [m4a_audio for m4a_audio in os.listdir(self.audio_media_path) if m4a_audio.endswith(".m4a")]:
+            self.convertM4AToWav(m4a_audio_file)             
+                             
         for audio_file in os.listdir(self.audio_media_path):
             if audio_file.endswith(".wav"):
                 # Move the audio files converted or not converted to the output path 
                 shutil.copy2(os.path.join(self.audio_media_path, audio_file), os.path.join(self.ouput_media_path, audio_file))                   
+                logger.debug(f"Copiado {audio_file} a {self.ouput_media_path}.")
                 #exit(1)
+       except Exception as e:
+            logger.error(f"Error: {e}")
+            raise e
         
      # Convert MP4 video to WAV audio   
-    def convertVideoToAudio(self, input_file, output_path):
+    def convertVideoToAudio(self, input_file):
+        output_file = input_file.replace('.mp4', '.wav')
+        input_path = os.path.join(self.video_media_path, input_file)
+        output_path = os.path.join(self.audio_media_path, output_file)
         # Load the MP4 audio file
-        audio = AudioFileClip(input_file)
+        audio = AudioFileClip(input_path)
         # Convert and save the audio to WAV format
         audio.write_audiofile(output_path, codec='pcm_s16le', bitrate='16000')
-        audio.close()
+        audio.close()        
+        logger.debug(f"Convertido {input_file} a {output_file}.")
 
+    def convertM4AToWav(self, m4a_audio_file):
+            m4a_audio_filepath = os.path.join(self.audio_media_path, m4a_audio_file) 
+            m4a_wrapper = AudioSegment.from_file(m4a_audio_filepath, format='m4a')
+            wav_audio_file = m4a_audio_file.replace('.m4a', '.wav')
+            m4a_wrapper.export(os.path.join(self.audio_media_path, wav_audio_file), format='wav')
+            logger.debug(f"Convertido {m4a_audio_file} a {wav_audio_file}.")
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Convert MP4 video to WAV audio")
@@ -56,4 +71,4 @@ if __name__ == '__main__':
     args = parser.parse_args()
     converter = ConverterToAudio(args.video_media_path, args.audio_media_path)
     converter.convert()
-    # Convert the video to audio
+    

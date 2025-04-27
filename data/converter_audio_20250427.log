@@ -1,0 +1,28 @@
+DEBUG:__main__:Convertido 112_Accesibilidad_de_las_imagenes_en_textos_digitales.mp4 a 112_Accesibilidad_de_las_imagenes_en_textos_digitales.wav.
+DEBUG:__main__:Convertido UNED-datos-en-abierto.mp4 a UNED-datos-en-abierto.wav.
+DEBUG:__main__:Convertido Vídeo promocional del MOOC Materiales Digitales Accesibles.mp4 a Vídeo promocional del MOOC Materiales Digitales Accesibles.wav.
+ERROR:__main__:Error: [WinError 2] El sistema no puede encontrar el archivo especificado
+DEBUG:pydub.converter:subprocess.call(['ffmpeg', '-y', '-f', 'mp4', '-i', 'e:/Desarrollo/TFM/datasets\\Aplicaciones de la I.A. para profundizar en el conocimiento en problemas mentales.m4a', '-acodec', 'pcm_s16le', '-vn', '-f', 'wav', '-'])
+DEBUG:pydub.converter:subprocess.call(['ffmpeg', '-y', '-f', 'mp4', '-i', 'e:/Desarrollo/TFM/datasets\\Aplicaciones de la I.A. para profundizar en el conocimiento en problemas mentales.m4a', '-acodec', 'pcm_s16le', '-vn', '-f', 'wav', '-'])
+DEBUG:__main__:Convertido Aplicaciones de la I.A. para profundizar en el conocimiento en problemas mentales.m4a a Aplicaciones de la I.A. para profundizar en el conocimiento en problemas mentales.wav.
+DEBUG:pydub.converter:subprocess.call(['ffmpeg', '-y', '-f', 'mp4', '-i', 'e:/Desarrollo/TFM/datasets\\Programación I. Orientaciones.m4a', '-acodec', 'pcm_s16le', '-vn', '-f', 'wav', '-'])
+DEBUG:__main__:Convertido Programación I. Orientaciones.m4a a Programación I. Orientaciones.wav.
+DEBUG:__main__:Convertido 112_Accesibilidad_de_las_imagenes_en_textos_digitales.mp4 a 112_Accesibilidad_de_las_imagenes_en_textos_digitales.wav.
+DEBUG:__main__:Convertido UNED-datos-en-abierto.mp4 a UNED-datos-en-abierto.wav.
+DEBUG:__main__:Convertido Vídeo promocional del MOOC Materiales Digitales Accesibles.mp4 a Vídeo promocional del MOOC Materiales Digitales Accesibles.wav.
+DEBUG:pydub.converter:subprocess.call(['ffmpeg', '-y', '-f', 'mp4', '-i', 'e:/Desarrollo/TFM/datasets\\Aplicaciones de la I.A. para profundizar en el conocimiento en problemas mentales.m4a', '-acodec', 'pcm_s16le', '-vn', '-f', 'wav', '-'])
+ERROR:__main__:Error: 'AudioSegment' object has no attribute 'close'
+DEBUG:__main__:Convertido 112_Accesibilidad_de_las_imagenes_en_textos_digitales.mp4 a 112_Accesibilidad_de_las_imagenes_en_textos_digitales.wav.
+DEBUG:__main__:Convertido UNED-datos-en-abierto.mp4 a UNED-datos-en-abierto.wav.
+DEBUG:__main__:Convertido Vídeo promocional del MOOC Materiales Digitales Accesibles.mp4 a Vídeo promocional del MOOC Materiales Digitales Accesibles.wav.
+DEBUG:pydub.converter:subprocess.call(['ffmpeg', '-y', '-f', 'mp4', '-i', 'e:/Desarrollo/TFM/datasets\\Aplicaciones de la I.A. para profundizar en el conocimiento en problemas mentales.m4a', '-acodec', 'pcm_s16le', '-vn', '-f', 'wav', '-'])
+DEBUG:__main__:Convertido Aplicaciones de la I.A. para profundizar en el conocimiento en problemas mentales.m4a a Aplicaciones de la I.A. para profundizar en el conocimiento en problemas mentales.wav.
+DEBUG:pydub.converter:subprocess.call(['ffmpeg', '-y', '-f', 'mp4', '-i', 'e:/Desarrollo/TFM/datasets\\Programación I. Orientaciones.m4a', '-acodec', 'pcm_s16le', '-vn', '-f', 'wav', '-'])
+DEBUG:__main__:Convertido Programación I. Orientaciones.m4a a Programación I. Orientaciones.wav.
+DEBUG:__main__:Copiado 112_Accesibilidad_de_las_imagenes_en_textos_digitales.wav a ./data/media.
+DEBUG:__main__:Copiado Aplicaciones de la I.A. para profundizar en el conocimiento en problemas mentales.wav a ./data/media.
+DEBUG:__main__:Copiado Programación I. Orientaciones.wav a ./data/media.
+DEBUG:__main__:Copiado sample.wav a ./data/media.
+DEBUG:__main__:Copiado test.wav a ./data/media.
+DEBUG:__main__:Copiado UNED-datos-en-abierto.wav a ./data/media.
+DEBUG:__main__:Copiado Vídeo promocional del MOOC Materiales Digitales Accesibles.wav a ./data/media.
