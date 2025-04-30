@@ -3,3 +3,4 @@ argparse==1.4.0
 ffmpeg==1.4 
 ffprobe==0.5 
 pydub==0.25.1
+docker==7.1.0

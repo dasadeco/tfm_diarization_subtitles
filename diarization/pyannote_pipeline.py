@@ -12,6 +12,7 @@ from datetime import datetime
 
 class PipelineVersions(Enum):
     V2_1 ='speaker-diarization@2.1'
+    V3_0 ='speaker-diarization-3.0'
     V3_1 ='speaker-diarization-3.1'
 
 

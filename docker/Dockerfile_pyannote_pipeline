@@ -1,0 +1,15 @@
+FROM python:3.12-slim-bookworm
+LABEL AUTHOR="Daniel Saenz de Cosca"
+
+#RUN pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+RUN apt-get update && apt-get install -y libsndfile1 ffmpeg
+RUN pip3 install pyannote.audio    
+RUN pip3 install argparse==1.4.0
+
+WORKDIR /
+COPY  diarization/pyannote_pipeline.py /
+RUN mkdir -p /data
+RUN mkdir -p /models
+
+ENTRYPOINT ["python", "/pyannote_pipeline.py"]
+CMD ["--help"]  
