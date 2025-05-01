@@ -1,15 +1,16 @@
-FROM python:3.12-slim-bookworm
-LABEL AUTHOR="Daniel Saenz de Cosca"
+FROM python:3.10-slim-buster
+LABEL description="Pyannote pipeline for speaker diarization"   
 
-#RUN pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+#RUN apk update && apk add --no-cache gcc python3 py3-pip ffmpeg sox libsndfile
 RUN apt-get update && apt-get install -y libsndfile1 ffmpeg
 RUN pip3 install pyannote.audio    
 RUN pip3 install argparse==1.4.0
+RUN pip3 install onnxruntime
 
 WORKDIR /
-COPY  diarization/pyannote_pipeline.py /
-RUN mkdir -p /data
-RUN mkdir -p /models
+COPY diarization/pyannote_pipeline.py /
+COPY diarization/keep_alive.py /
+RUN mkdir -p /media
+RUN chmod 777 /media
 
-ENTRYPOINT ["python", "/pyannote_pipeline.py"]
-CMD ["--help"]  
+ENTRYPOINT ["python", "/keep_alive.py"]
