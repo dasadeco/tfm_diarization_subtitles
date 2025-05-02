@@ -1,4 +1,4 @@
-## Esto es un TFM sobre Subtítulos y Diarizazión. Cuida de cumplir la norma UNE 153010:2012  española.
+## Esto es un TFM sobre Subtítulos y Diarización. Cuida de cumplir la norma UNE 153010:2012  española.
 
 Hervé Bredin es el autor de *Pyannote-audio* : https://github.com/hbredin
 

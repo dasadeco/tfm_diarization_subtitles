@@ -13,4 +13,4 @@ COPY diarization/keep_alive.py /
 RUN mkdir -p /media
 RUN chmod 777 /media
 
-ENTRYPOINT ["python", "/keep_alive.py"]
+ENTRYPOINT ["python", "/keep_alive.py"]  
