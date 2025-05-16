@@ -6,14 +6,25 @@
 # 4. instantiate pretrained speaker diarization pipeline
 from pyannote.audio import Pipeline
 from pyannote.audio import Model
-import os, argparse, logging
+import os, sys, argparse, logging
 from enum import Enum
 from datetime import datetime
+
+STATUS_FILE = 'status.txt'
+FIN="FIN"
 
 class PipelineVersions(Enum):
     V2_1 ='speaker-diarization@2.1'
     V3_0 ='speaker-diarization-3.0'
     V3_1 ='speaker-diarization-3.1'
+
+## Para guardar en un archivo el estado de la ejecución del script, este archivo es la manera que tiene el gestor de contenedores 
+# de saber que ha terminado la ejecución del script.
+def save_status(info_text):
+    with open(os.path.join(args.volume_path, STATUS_FILE), 'w') as info_file:
+        logger.info("abierto el archivo de estado")
+        info_file.write(info_text)
+        #info_file.close()
 
 
 if __name__ == '__main__':
@@ -46,6 +57,7 @@ if __name__ == '__main__':
             # apply the pipeline to an audio file
             wav_file_path = os.path.join(args.volume_path, wav_file)            
             diarization = pipeline(wav_file_path)            
+            logger.info(f'Pipeline preparada para el audio {wav_file_path} ...')
             print(f'Pipeline preparada para el audio {wav_file_path} ...')
             # dump the diarization output to disk using RTTM format
             rttm_filename = wav_file.replace('.wav', '.rttm')
@@ -62,11 +74,15 @@ if __name__ == '__main__':
             for turn, _, speaker in diarization.itertracks(yield_label=True):                
                 logger.debug(f'start={turn.start:.1f}s stop={turn.end:.1f}s speaker_{speaker}')
                 print(f"start={turn.start:.1f}s stop={turn.end:.1f}s speaker_{speaker}")
-            logger.info(f'FIN de la diarización del audio {wav_file_path}.')   
-            print(f'FIN de la diarización del audio {wav_file_path}.')
+            logger.info(f'FIN de la diarización del audio {wav_file_path}.') # Imprime al archivo de logging el fin de la diarización de uno de los archivos   
+            print(f'FIN de la diarización del audio {wav_file_path}.')       # Imprime a stdout el fin de la diarización de uno de los archivos   
+            save_status(f'FIN de la diarizacion del audio {wav_file_path}.') # Imprime al archivo de estado el fin de la diarización de uno de los archivos, 
+                            # este archivo es la manera que teiene el gestor de contenedores de saber que ha terminado la ejecución del script.  
+        logger.info(f'pyannote/{version_model} FIN\n')
+        print(f'pyannote/{version_model} FIN\n')
+        save_status(FIN)   
+        sys.exit(0)         
     else:        
         logger.error(f'No existe la carpeta {args.volume_path}')    
         print(f'No existe la carpeta {args.volume_path}')    
-        
-logger.info(f'pyannote/{version_model} END\n')
-print(f'pyannote/{version_model} END\n')
+        exit

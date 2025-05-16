@@ -4,17 +4,20 @@ import docker
 import os
 import logging
 import json
+import time
 from datetime import datetime
 from enum import Enum
+
+STATUS_FILE = 'status.txt'
+FIN="FIN"
 
 class DockerImages(Enum):
     pyannote_pipeline ='dasaenzd/pyannote_pipeline:latest'
 
-
 class DockerDiarizationManager: 
-    def __init__(self, host_volume_path, container_volume_path='/media', 
-                 image_name = 'dasaenzd/pyannote_pipeline:latest'):        
+    def __init__(self, host_volume_path, container_volume_path='/media', image_name = 'dasaenzd/pyannote_pipeline:latest'):        
         self.client = docker.from_env()        
+        self.host_volume_path = host_volume_path
         self.container_volume_path = container_volume_path
         if type(image_name) == DockerImages:
             self.image_name = image_name.value
@@ -23,7 +26,7 @@ class DockerDiarizationManager:
                     
         try:
             binding = {}
-            binding[host_volume_path] = {"bind" : container_volume_path, "mode" : "rw"}            
+            binding[self.host_volume_path] = {"bind" : container_volume_path, "mode" : "rw"}            
             if len(self.image_name.split('/')) >1:
                 image = self.client.images.pull(self.image_name)                    
             else:
@@ -31,7 +34,7 @@ class DockerDiarizationManager:
             container_name = image.tags[0].split('/')[1].split(':')[0] + '_container'                        
             
             self.logger = logging.getLogger(__name__)
-            logs_path = os.path.join(host_volume_path, "logs")
+            logs_path = os.path.join(self.host_volume_path, "logs")
             if not os.path.exists(logs_path):
                 os.makedirs( logs_path, exist_ok=True)
             logging.basicConfig(filename=f'{logs_path}/docker_manager_{container_name}_{datetime.now().strftime("%Y%m%d%H%M%S")}.log', 
@@ -67,7 +70,7 @@ class DockerDiarizationManager:
             self.logger.error(f"An error occurred while stopping the container: {e}")
             sys.exit(1)     
 
-    def run_container(self,  image_name: str, container_name:str, volume_binding=None):        
+    def run_container(self, image_name: str, container_name:str, volume_binding=None):        
         try:
             self.stop_if_running(container_name)
             container = self.client.containers.run(image_name, name=container_name, volumes=volume_binding, detach=True)
@@ -92,16 +95,44 @@ class DockerDiarizationManager:
                           ["python", script, "--version_model", param_vm, "--huggingface_token", param_hft, "--volume_path", self.container_volume_path])
             #exec_command = self.client.api.exec_create(self.container_pyannote_pipeline.id, ["python", command])
             self.logger.info(f"Executing command: {exec_command} in container {self.container_pyannote_pipeline.name} ...")
-            output = self.client.api.exec_start(exec_command['Id'])
-            return output.decode('utf-8')
+            self.client.api.exec_start(exec_command['Id'], detach=False)
+            self._check_status_file()            
+            return 0
         except docker.errors.NotFound:
             print(f"Container {self.container_pyannote_pipeline.name} not found.")
             self.logger.error(f"Container {self.container_pyannote_pipeline.name} not found.")
+            self.stop_if_running(self.container_pyannote_pipeline.name) 
             sys.exit(1)
         except Exception as e:
             print(f"An error occurred while executing the command: {e}")
             self.logger.error(f"An error occurred while executing the command: {e}")
+            self.stop_if_running(self.container_pyannote_pipeline.name) 
             sys.exit(1)         
+            
+            
+    def _check_status_file(self):        
+                        
+        def _in_process(line):
+            if len(line) == 8:
+                line="_"
+            else: 
+                line = line + "_"   
+            return line        
+        
+        result_path = os.path.join(self.host_volume_path, STATUS_FILE)
+        status = 0
+        line = "_"
+        while(status != FIN):
+            if(os.path.exists(result_path)):
+                with open(result_path, 'r') as file:
+                    status = file.readline()
+                    file.close()
+                clock = _in_process(line)
+                print(f"{str(status)} {clock}", end='\r', flush=True)                
+                time.sleep(1)  
+                
+        self.stop_if_running(self.container_pyannote_pipeline.name)                     
+    
             
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Docker Diarization Manager")
@@ -110,9 +141,10 @@ if __name__ == '__main__':
     parser.add_argument('-img', '--image_name', type=str, default='dasaenzd/pyannote_pipeline:latest', help='Nombre de la imagen docker')    
     parser.add_argument('-par', '--params', type=str,  help='Parámetros propios para el script ') 
     args = parser.parse_args()
+                
     dockerManager = DockerDiarizationManager(host_volume_path=args.host_volume_path, container_volume_path=args.container_volume_path, 
-                                             image_name=args.image_name)
+                                             image_name=args.image_name)     
     script =  args.image_name.split('/')[1].split(':')[0] + '.py'                        
     args.params = json.loads(args.params) if args.params is not None else {}
     dockerManager.execute_command(script, args.params['version_model'], args.params['huggingface_token'])
-    
+    sys.exit(0)
