@@ -12,5 +12,5 @@ RUN mkdir -p /data/rttm_ref
 RUN chmod 777 /data/subtitles 
 RUN chmod 777 /data/rttm_ref
 
-# Run the JAR file
+# Run the JAR file -d es un parámetro que se debería de pasar en realidad.
 ENTRYPOINT ["java", "-jar", "app.jar", "generaAllRTTMRef", "-d=200"]

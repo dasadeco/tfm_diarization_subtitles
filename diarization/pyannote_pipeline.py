@@ -9,6 +9,7 @@ from pyannote.audio import Model
 import os, sys, argparse, logging
 from enum import Enum
 from datetime import datetime
+import torchaudio
 
 STATUS_FILE = 'status.txt'
 FIN="FIN"
@@ -31,7 +32,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Pyannote PIPELINE Audio Speaker Diarization')
     parser.add_argument('-vm', '--version_model', type=str, default=PipelineVersions.V3_1, help='Pipeline version')
     parser.add_argument('-hft', '--huggingface_token', type=str, help='Huggingface token')
-    parser.add_argument('-vp', '--volume_path', type=str, default='/media', help='Path of the folder with the audio(.wav) files')   
+    parser.add_argument('-vp', '--volume_path', type=str, help='Path of the folder with the audio(.wav) files')   
         
     args = parser.parse_args()  
     if type(args.version_model) == PipelineVersions:
@@ -55,8 +56,12 @@ if __name__ == '__main__':
         wav_files = [wav for wav in os.listdir(args.volume_path) if wav.split('.')[-1] == 'wav']
         for wav_file in wav_files:
             # apply the pipeline to an audio file
-            wav_file_path = os.path.join(args.volume_path, wav_file)            
-            diarization = pipeline(wav_file_path)            
+            wav_file_path = os.path.join(args.volume_path, wav_file)
+            
+            #waveform, sample_rate = torchaudio.load(wav_file_path)
+            
+            diarization = pipeline(wav_file_path)                        
+            #diarization = pipeline({"waveform":waveform, "sample_rate":sample_rate})            
             logger.info(f'Pipeline preparada para el audio {wav_file_path} ...')
             print(f'Pipeline preparada para el audio {wav_file_path} ...')
             # dump the diarization output to disk using RTTM format
