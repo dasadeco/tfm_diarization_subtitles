@@ -25,8 +25,6 @@ def save_status(info_text):
     with open(os.path.join(args.volume_path, STATUS_FILE), 'w') as info_file:
         logger.info("abierto el archivo de estado")
         info_file.write(info_text)
-        #info_file.close()
-
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Pyannote PIPELINE Audio Speaker Diarization')

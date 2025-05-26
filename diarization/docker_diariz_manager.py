@@ -143,7 +143,7 @@ class DockerDiarizationManager:
                     status = file.readline()                    
                 visual_anim = _in_process(visual_anim)
                 self.logger.info(f"{visual_anim}\n")
-                print(f"{visual_anim}", end="\r")                
+                print(f"Running {visual_anim}", end="\r", flush=True)                
                 time.sleep(1)
         file.close()          
                         
