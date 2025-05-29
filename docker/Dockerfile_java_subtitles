@@ -1,5 +1,5 @@
 # Use an official JDK 8 base image
-FROM openjdk:8-jdk-alpine
+FROM openjdk:8-jdk-slim
 LABEL description="Dos Utilidades para subtitulos: moverlos un numero de segundos prefijados y sobre todo convertir vtt a rttm para diarization"
 LABEL author="dasadeco (aka Daniel Sáenz de Cosca)" 
 
@@ -7,10 +7,11 @@ LABEL author="dasadeco (aka Daniel Sáenz de Cosca)"
 WORKDIR /
 # Copy the JAR file into the container
 COPY subtitles/subtitles-0.0.1-SNAPSHOT.jar app.jar
+
 RUN mkdir -p /data/subtitles
 RUN mkdir -p /data/rttm_ref
 RUN chmod 777 /data/subtitles 
 RUN chmod 777 /data/rttm_ref
 
-# Run the JAR file -d es un parámetro que se debería de pasar en realidad.
-ENTRYPOINT ["java", "-jar", "app.jar", "generaAllRTTMRef", "-d=200"]
+# Run the JAR file (-d es un parámetro que se debería de pasar en realidad.)
+ENTRYPOINT ["java", "-jar", "app.jar", "generaAllRTTMRef"]
