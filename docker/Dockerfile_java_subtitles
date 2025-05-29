@@ -1,5 +1,5 @@
 # Use an official JDK 8 base image
-FROM openjdk:8-jdk-slim
+FROM openjdk:8-jdk-alpine
 LABEL description="Dos Utilidades para subtitulos: moverlos un numero de segundos prefijados y sobre todo convertir vtt a rttm para diarization"
 LABEL author="dasadeco (aka Daniel Sáenz de Cosca)" 
 

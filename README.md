@@ -13,7 +13,7 @@ Construyendo las Docker Images
 2. Run `docker buildx build -f Dockerfile_java_subtitles -t  dasaenzd/converter_subtitles:latest ..` Se construye una imagen de 115 Mb
 3. Run `docker push dasaenzd/converter_subtitles:latest`   para enviarlo a Docker Hub, a mi espacio de nombres: dasaenzd
 4. cd .. (ve a la carpeta TFM)
-5. Run `docker run -it --mount type=bind,source=.\\subtitles\\data,target=/data --name converter_java_subtitles dasaenzd/converter_subtitles:latest -d={PARAM DELTA EN MILLISECS.}`
+5. Run `docker run --mount type=bind,source=.\\subtitles\\data,target=/data --name converter_java_subtitles dasaenzd/converter_subtitles:latest -d={PARAM DELTA EN MILLISECS.}`
     Ejecuta manualmente este contenedor, esto realiza la conversión de todos los archivos de subtitulos de referencia y los convierte a RTTM de referencia, para ello le pasamos un (hiper)parámetro Delta para establecer cuando consideramos que termina un speech del mismo hablante. 
 
 Siguiente paso, obtención de métricas:
