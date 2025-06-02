@@ -16,6 +16,7 @@ class ConverterToAudio:
             os.makedirs( logs_path, exist_ok=True )
         logging.basicConfig(filename=f'{logs_path}/converter_audio_{datetime.now().strftime("%Y%m%d%H%M%S")}.log', 
                                 encoding='utf-8', level=logging.DEBUG, format='%(asctime)s %(message)s', datefmt='%Y-%m-%d %H:%M:%S')           
+      
         
         
     def convert(self):
@@ -48,7 +49,7 @@ class ConverterToAudio:
         for mp3_audio_file in [mp3_audio for mp3_audio in os.listdir(self.audio_media_path) if mp3_audio.lower().endswith(".mp3")]:
             mp3_audio_file_under = mp3_audio_file.replace(" ","_")
             os.rename(os.path.join(self.audio_media_path, mp3_audio_file), os.path.join(self.audio_media_path, mp3_audio_file_under))    
-            self.convertMP3ToWav(mp3_audio_file_under)                         
+            self.convertMP3ToWav(mp3_audio_file_under)                           
                              
         for audio_file in os.listdir(self.audio_media_path):
             if audio_file.endswith(".wav"):
@@ -92,8 +93,8 @@ class ConverterToAudio:
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Convert MP4 video to WAV audio and other audio formats to WAV")
-    parser.add_argument('-vmp', '--video_media_path', type=str, default='datasets', help='Path of the folder with the video(.mp4) files')
-    parser.add_argument('-amp', '--audio_media_path', type=str, default='datasets', help='Path of the folder with the audio(.wav) files')
+    parser.add_argument('-vmp', '--video_media_path', type=str, help='Path of the folder with the video(.mp4) files')
+    parser.add_argument('-amp', '--audio_media_path', type=str, help='Path of the folder with the audio(.wav) files')
 
     args = parser.parse_args()
     converter = ConverterToAudio(args.video_media_path, args.audio_media_path)

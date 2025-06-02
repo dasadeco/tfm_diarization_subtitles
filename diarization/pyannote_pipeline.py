@@ -27,6 +27,7 @@ def save_status(info_text):
         info_file.write(info_text)
 
 if __name__ == '__main__':
+## usage: pyannote_pipeline.py [-h] [-vm VERSION_MODEL] [-hft HUGGINGFACE_TOKEN] [-vp DOCKER_VOLUME_PATH]    
     parser = argparse.ArgumentParser(description='Pyannote PIPELINE Audio Speaker Diarization')
     parser.add_argument('-vm', '--version_model', type=str, default=PipelineVersions.V3_1, help='Pipeline version')
     parser.add_argument('-hft', '--huggingface_token', type=str, help='Huggingface token')
