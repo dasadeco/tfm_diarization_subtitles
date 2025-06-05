@@ -9,7 +9,6 @@ from pyannote.audio import Model
 import os, sys, argparse, logging
 from enum import Enum
 from datetime import datetime
-import torchaudio
 
 STATUS_FILE = 'status.txt'
 FIN="FIN"

@@ -157,7 +157,7 @@ if __name__ == '__main__':
     parser.add_argument('-cvp', '--container_volume_path', type=str, default='/media', help='Path en el contenedor donde se guardan los archivos wav')
     parser.add_argument('-img', '--image_name', type=str, default='dasaenzd/pyannote_pipeline:latest', help='Nombre de la imagen docker')    
     parser.add_argument('-par', '--params', type=str,  help='Parámetros propios para el script ') 
-    parser.add_argument('-con', '--converter', action='store_true', help='Previamente, se convierten archivos de audio y video al fomrato WAV para disponer de datasets')
+    parser.add_argument('-con', '--converter', action='store_true', help='Previamente, se convierten archivos de audio y video al formato WAV para disponer de datasets')
     args = parser.parse_args()
                        
     dockerManager = DockerDiarizationManager(host_volume_path=args.host_volume_path, container_volume_path=args.container_volume_path, 
