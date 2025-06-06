@@ -10,11 +10,13 @@ import math
 import pandas as pd
 
 from pyannote.metrics.diarization import DiarizationErrorRate
-from pyannote.metrics.detection import DetectionErrorRate
+from pyannote.metrics.detection import DetectionErrorRate, DetectionAccuracy, DetectionCostFunction, DetectionPrecision, DetectionRecall, DetectionPrecisionRecallFMeasure
+from openpyxl import load_workbook
+
 
 RTTM = "rttm"
 RTTM_REF = "rttm_ref"
-COLLAR = 0.250
+COLLAR = 0.
 
 class DatasetEnum(Enum):
     canaluned = "canal.uned"
@@ -22,14 +24,21 @@ class DatasetEnum(Enum):
     fundaciononce = "Fundacion ONCE"
 
 class MetricsEnum(Enum):
+  DetCost = "Detection Cost Function" 
+  DetER = "Detection Error Rate"    
+  DetAcc = "Detection Accuracy"
+  DetPrec= "Detection Precision" 
+  DetRec= "Detection Recall"
+  DetFMeas= "Detection F-Measure" 
+
   DER = "Diarization Error Rate"
-  DetER = "Detection Error Rate"
+  
   Cobertura = "Cobertura"
   
 class PipelineVersions(Enum):
-    V2_1 ='speaker-diarization@2.1'
-    V3_0 ='speaker-diarization-3.0'
-    V3_1 ='speaker-diarization-3.1'  
+    V2_1 ='PYANNOTE speaker-diarization@2.1'
+    V3_0 ='PYANNOTE speaker-diarization-3.0'
+    V3_1 ='PYANNOTE speaker-diarization-3.1'  
 
 
 class MetricsByAudioFile():    
@@ -43,7 +52,7 @@ class MetricsByAudioFile():
 logger = None
 total_metrics:list[MetricsByAudioFile] = []                   
   
-def executeMetrics(metrics:list, subfolder_path, rttms_ref_path, rttm_file):
+def executeMetrics(metrics:list, subfolder_path, rttms_ref_path, rttm_file, collar=COLLAR):
       
     def _create_annot(file:FileIO, annot:Annotation)->Annotation:              
       for line in file:
@@ -68,13 +77,19 @@ def executeMetrics(metrics:list, subfolder_path, rttms_ref_path, rttm_file):
     ref_file.close()    
      
     metrics_map = {}                                      
-    for metric in metrics:        
-        if metric.strip() == MetricsEnum.DER or metric.strip() == MetricsEnum.DER.name:
-            der_metric = DiarizationErrorRate(COLLAR)                 
-            metrics_map[ MetricsEnum.DER.value] = der_metric(reference, hypothesis)            
-        elif metric.strip() == MetricsEnum.DetER or metric.strip() == MetricsEnum.DetER.name:    
-            deter_metric = DetectionErrorRate(COLLAR)                 
-            metrics_map[MetricsEnum.DetER.value] = deter_metric(reference, hypothesis)            
+    for metric in metrics:
+        metric = metric.strip()        
+        match metric:        
+            case MetricsEnum.DetAcc.name : metrics_map[ MetricsEnum.DetAcc.value] = DetectionAccuracy(collar)(reference, hypothesis)
+            case MetricsEnum.DetCost.name : metrics_map[ MetricsEnum.DetCost.value] = DetectionCostFunction(collar)(reference, hypothesis)
+            case MetricsEnum.DetER.name : metrics_map[ MetricsEnum.DetER.value] = DetectionErrorRate(collar)(reference, hypothesis)
+            case MetricsEnum.DetPrec.name : metrics_map[ MetricsEnum.DetPrec.value] = DetectionPrecision(collar)(reference, hypothesis)
+            case MetricsEnum.DetRec.name : metrics_map[ MetricsEnum.DetRec.value] = DetectionRecall(collar)(reference, hypothesis)
+            case MetricsEnum.DetFMeas.name : metrics_map[ MetricsEnum.DetFMeas.value] = DetectionPrecisionRecallFMeasure(collar)(reference, hypothesis)
+            
+            case MetricsEnum.DER.name : metrics_map[ MetricsEnum.DER.value] = DiarizationErrorRate(collar)(reference, hypothesis)
+            
+
     mbaf = MetricsByAudioFile(rttm_file, model, metrics_map)
     total_metrics.append(mbaf)
 
@@ -99,7 +114,18 @@ def write_metrics(hypotheses_path):
     
     export_path = os.path.join(hypotheses_path, os.path.pardir, "metrics", "metrics.xlsx")
     metrics_df.to_excel(export_path,  index=False)
-    
+    wb = load_workbook(export_path)
+    ws = wb["Sheet1"]   
+    ws.column_dimensions['A'].width = 80
+    ws.column_dimensions['B'].width = 30
+    ws.column_dimensions['C'].width = 35
+    ws.column_dimensions['D'].width = 35
+    ws.column_dimensions['E'].width = 35
+    ws.column_dimensions['F'].width = 35
+    ws.column_dimensions['G'].width = 35
+    ws.column_dimensions['H'].width = 35
+    ws.column_dimensions['I'].width = 35
+    wb.save(export_path)
     
 
 if __name__ == '__main__':
@@ -107,13 +133,16 @@ if __name__ == '__main__':
     parser.add_argument('-hp', '--hyphoteses_path', type=str, default='E:\Desarrollo\TFM\data\media\rttm', help='Path of the folder with hypotheses rttm files') 
     parser.add_argument('-rp', '--reference_path', type=str, default='E:\Desarrollo\TFM\subtitles\data\rttm_ref', help='Path of the folder with reference rttm files')     
     parser.add_argument('-me', '--metrics', type=str, help='List of Metrics to apply')
+    parser.add_argument('-co', '--collar', type=float, help='List of Metrics to apply')
     args = parser.parse_args()
-    
+            
     files = []
     logs_path = os.path.join(args.hyphoteses_path, os.path.pardir, "logs")
     logger = logging.getLogger(__name__)
     logging.basicConfig(filename=f'{logs_path}/metrics.log',
                         encoding='utf-8', level=logging.DEBUG, format='%(asctime)s %(message)s', datefmt='%Y-%m-%d %H:%M:%S')            
+    if args.collar is not None and args.collar > 0.5:
+        logger.warning("Expected collar < 0.500")
     
     if os.path.exists(args.reference_path):
         ref_rttm_files = [ref_rttm_file for ref_rttm_file in os.listdir(args.reference_path) if ref_rttm_file.lower().endswith(".rttm")]                
