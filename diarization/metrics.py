@@ -1,5 +1,6 @@
 from enum import Enum
 from io import FileIO
+import string
 
 from pyannote.core import Annotation, Segment
 import argparse
@@ -9,8 +10,11 @@ from datetime import datetime
 import math
 import pandas as pd
 
-from pyannote.metrics.diarization import DiarizationErrorRate
+from pyannote.metrics.diarization import DiarizationErrorRate, DiarizationCompleteness, DiarizationCoverage, DiarizationPurity, DiarizationHomogeneity, \
+    DiarizationPurityCoverageFMeasure, GreedyDiarizationErrorRate, JaccardErrorRate
 from pyannote.metrics.detection import DetectionErrorRate, DetectionAccuracy, DetectionCostFunction, DetectionPrecision, DetectionRecall, DetectionPrecisionRecallFMeasure
+from pyannote.metrics.segmentation import SegmentationCoverage, SegmentationPurity, SegmentationPurityCoverageFMeasure, SegmentationPrecision, SegmentationRecall
+from pyannote.metrics.identification import IdentificationErrorRate, IdentificationPrecision, IdentificationRecall
 from openpyxl import load_workbook
 
 
@@ -24,16 +28,33 @@ class DatasetEnum(Enum):
     fundaciononce = "Fundacion ONCE"
 
 class MetricsEnum(Enum):
+    # First Step
   DetCost = "Detection Cost Function" 
   DetER = "Detection Error Rate"    
   DetAcc = "Detection Accuracy"
   DetPrec= "Detection Precision" 
   DetRec= "Detection Recall"
   DetFMeas= "Detection F-Measure" 
-
+    # Second Step
+  SegPur = "Segmentation Purity"
+  SegCover = "Segmentation Coverage"
+  SegFMeas = "Segmentation Purity/Coverage F-Measure"
+  SegPrec = "Segmentation Precision"
+  SegRec = "Segmentation Recall"
+    # Third Step
   DER = "Diarization Error Rate"
+  DiariCompl = "Diarization Completeness"
+  DiariCover = "Diarization Coverage"
+  DiariHomog = "Diarization Homogeneity"
+  DiariPur = "Diarization Purity"
+  DiariFMeas = "Diarization Purity/Coverage F-Measure"
+  GreedyDER = "Greedy Diarization Error Rate"
+  JER = "Jaccard Error Rate"
+    # Fourth Step
+  IER = "Identification Error Rate"
+  IdentPrec = "Identification Precision" 
+  IdentRec = "Identification Recall"
   
-  Cobertura = "Cobertura"
   
 class PipelineVersions(Enum):
     V2_1 ='PYANNOTE speaker-diarization@2.1'
@@ -76,7 +97,8 @@ def executeMetrics(metrics:list, subfolder_path, rttms_ref_path, rttm_file, coll
         reference = _create_annot(ref_file, reference)
     ref_file.close()    
      
-    metrics_map = {}                                      
+    metrics_map = {}
+                                          
     for metric in metrics:
         metric = metric.strip()        
         match metric:        
@@ -86,9 +108,20 @@ def executeMetrics(metrics:list, subfolder_path, rttms_ref_path, rttm_file, coll
             case MetricsEnum.DetPrec.name : metrics_map[ MetricsEnum.DetPrec.value] = DetectionPrecision(collar)(reference, hypothesis)
             case MetricsEnum.DetRec.name : metrics_map[ MetricsEnum.DetRec.value] = DetectionRecall(collar)(reference, hypothesis)
             case MetricsEnum.DetFMeas.name : metrics_map[ MetricsEnum.DetFMeas.value] = DetectionPrecisionRecallFMeasure(collar)(reference, hypothesis)
-            
+            case MetricsEnum.SegPur.name : metrics_map[ MetricsEnum.SegPur.value] = SegmentationPurity(collar)(reference, hypothesis)
+            case MetricsEnum.SegCover.name : metrics_map[ MetricsEnum.SegCover.value] = SegmentationCoverage(collar)(reference, hypothesis)
+            case MetricsEnum.SegFMeas.name : metrics_map[ MetricsEnum.SegFMeas.value] = SegmentationPurityCoverageFMeasure(collar)(reference, hypothesis)
             case MetricsEnum.DER.name : metrics_map[ MetricsEnum.DER.value] = DiarizationErrorRate(collar)(reference, hypothesis)
-            
+            case MetricsEnum.DiariCompl.name : metrics_map[ MetricsEnum.DiariCompl.value] = DiarizationCompleteness(collar)(reference, hypothesis)
+            case MetricsEnum.DiariCover.name : metrics_map[ MetricsEnum.DiariCover.value] = DiarizationCoverage(collar)(reference, hypothesis)
+            case MetricsEnum.DiariHomog.name : metrics_map[ MetricsEnum.DiariHomog.value] = DiarizationHomogeneity(collar)(reference, hypothesis)
+            case MetricsEnum.DiariPur.name : metrics_map[ MetricsEnum.DiariPur.value] = DiarizationPurity(collar)(reference, hypothesis)
+            case MetricsEnum.DiariFMeas.name : metrics_map[ MetricsEnum.DiariFMeas.value] = DiarizationPurityCoverageFMeasure(collar)(reference, hypothesis)
+            case MetricsEnum.GreedyDER.name : metrics_map[ MetricsEnum.GreedyDER.value] = GreedyDiarizationErrorRate(collar)(reference, hypothesis)
+            case MetricsEnum.JER.name : metrics_map[ MetricsEnum.JER.value] = JaccardErrorRate(collar)(reference, hypothesis)
+            case MetricsEnum.IER.name : metrics_map[ MetricsEnum.IER.value] = IdentificationErrorRate(collar)(reference, hypothesis)
+            case MetricsEnum.IdentPrec.name : metrics_map[ MetricsEnum.IdentPrec.value] = IdentificationPrecision(collar)(reference, hypothesis)
+            case MetricsEnum.IdentRec.name : metrics_map[ MetricsEnum.IdentRec.value] = IdentificationRecall(collar)(reference, hypothesis)
 
     mbaf = MetricsByAudioFile(rttm_file, model, metrics_map)
     total_metrics.append(mbaf)
@@ -116,15 +149,10 @@ def write_metrics(hypotheses_path):
     metrics_df.to_excel(export_path,  index=False)
     wb = load_workbook(export_path)
     ws = wb["Sheet1"]   
-    ws.column_dimensions['A'].width = 80
-    ws.column_dimensions['B'].width = 30
-    ws.column_dimensions['C'].width = 35
-    ws.column_dimensions['D'].width = 35
-    ws.column_dimensions['E'].width = 35
-    ws.column_dimensions['F'].width = 35
-    ws.column_dimensions['G'].width = 35
-    ws.column_dimensions['H'].width = 35
-    ws.column_dimensions['I'].width = 35
+    ws.column_dimensions['A'].width = 70
+    ws.column_dimensions['B'].width = 25
+    for letter in string.ascii_uppercase[2:]:
+        ws.column_dimensions[letter].width = 35
     wb.save(export_path)
     
 
@@ -147,6 +175,12 @@ if __name__ == '__main__':
     if os.path.exists(args.reference_path):
         ref_rttm_files = [ref_rttm_file for ref_rttm_file in os.listdir(args.reference_path) if ref_rttm_file.lower().endswith(".rttm")]                
         logger.info("Rttm Ref files: {ref_rttm_files}")
+        
+    if args.metrics.lower() == 'all':
+        args.metrics= ''
+        for me in MetricsEnum:
+            args.metrics += me.name + ','
+        args.metrics = args.metrics[:-1]        
     
     rttm_files_list = []
     for model_folder in os.listdir(args.hyphoteses_path):
