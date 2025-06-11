@@ -24,7 +24,7 @@ COLLAR = 0.
 
 class DatasetEnum(Enum):
     canaluned = "canal.uned"
-    fiapas = "FIAPAS"
+    fiapas = "fiapas"
     fundaciononce = "Fundacion ONCE"
 
 class MetricsEnum(Enum):
