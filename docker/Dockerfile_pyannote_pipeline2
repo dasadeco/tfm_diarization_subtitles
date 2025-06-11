@@ -1,0 +1,16 @@
+FROM python:3.10
+LABEL description="Pyannote pipeline para diarización"  
+LABEL author="dasadeco (aka Daniel Sáenz de Cosca)" 
+
+RUN apt-get install -y libsndfile1 ffmpeg
+RUN pip3 install pyannote.audio    
+RUN pip3 install argparse==1.4.0
+RUN pip3 install onnxruntime
+
+WORKDIR /
+COPY diarization/pyannote_pipeline.py /
+COPY diarization/keep_alive.py /
+RUN mkdir -p /media
+RUN chmod 777 /media
+
+ENTRYPOINT ["python", "/keep_alive.py"]  

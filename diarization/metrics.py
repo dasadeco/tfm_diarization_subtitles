@@ -6,7 +6,6 @@ from pyannote.core import Annotation, Segment
 import argparse
 import os
 import logging
-from datetime import datetime
 import math
 import pandas as pd
 
@@ -17,7 +16,6 @@ from pyannote.metrics.segmentation import SegmentationCoverage, SegmentationPuri
 from pyannote.metrics.identification import IdentificationErrorRate, IdentificationPrecision, IdentificationRecall
 from openpyxl import load_workbook
 
-
 RTTM = "rttm"
 RTTM_REF = "rttm_ref"
 COLLAR = 0.
@@ -26,6 +24,7 @@ class DatasetEnum(Enum):
     canaluned = "canal.uned"
     fiapas = "fiapas"
     fundaciononce = "Fundacion ONCE"
+    one_speaker= "1-speaker"
 
 class MetricsEnum(Enum):
     # First Step
@@ -68,12 +67,29 @@ class MetricsByAudioFile():
         self.rttm_file = rttm_file
         self.modelo = modelo
         self.metrics_map = metrics_map
-        self.dataset = dataset
+        
+        if type(dataset) == DatasetEnum:
+            self.dataset = dataset.name         
+        else:
+            self.dataset = dataset
 
 logger = None
 total_metrics:list[MetricsByAudioFile] = []                   
+
+
+def _buscar_by_extension_in_dataset_2_niveles(path, extension):
+    resultados = []
+    for carpeta_actual, carpetas, _ in os.walk(path):
+        for carpeta in carpetas:
+           for subcarpeta_actual, subcarpetas, archivos in os.walk(os.path.join(path,carpeta)): 
+            #nombre_carpeta = os.path.basename(subcarpeta)
+            nombre_subcarpeta = os.path.basename(subcarpeta_actual)
+            for archivo in archivos:
+                if archivo.lower().endswith(extension):
+                    resultados.append((archivo, nombre_subcarpeta, carpeta))
+    return resultados
   
-def executeMetrics(metrics:list, subfolder_path, rttms_ref_path, rttm_file, collar=COLLAR):
+def executeMetrics(metrics:list, dataset_subfolder_path, model, rttm_file, rttms_ref_path,  collar=COLLAR):
       
     def _create_annot(file:FileIO, annot:Annotation)->Annotation:              
       for line in file:
@@ -83,10 +99,10 @@ def executeMetrics(metrics:list, subfolder_path, rttms_ref_path, rttm_file, coll
                 math.trunc(float(data_list[3])*100) + math.trunc(float(data_list[4])*100))] = \
                 data_list[7]
       return annot
-                      
-    model = os.path.basename(subfolder_path)
-    hyp_rttm_file_path = os.path.join(subfolder_path, rttm_file)
-    ref_rttm_file_path = os.path.join(rttms_ref_path, rttm_file)
+                                            
+    dataset = os.path.basename(dataset_subfolder_path)
+    hyp_rttm_file_path = os.path.join(dataset_subfolder_path, model, rttm_file)
+    ref_rttm_file_path = os.path.join(rttms_ref_path, dataset, rttm_file)
     hypothesis = Annotation(rttm_file, model)
     with open(hyp_rttm_file_path, 'r') as hyp_file:
         hypothesis = _create_annot(hyp_file, hypothesis)
@@ -123,15 +139,16 @@ def executeMetrics(metrics:list, subfolder_path, rttms_ref_path, rttm_file, coll
             case MetricsEnum.IdentPrec.name : metrics_map[ MetricsEnum.IdentPrec.value] = IdentificationPrecision(collar)(reference, hypothesis)
             case MetricsEnum.IdentRec.name : metrics_map[ MetricsEnum.IdentRec.value] = IdentificationRecall(collar)(reference, hypothesis)
 
-    mbaf = MetricsByAudioFile(rttm_file, model, metrics_map)
+    mbaf = MetricsByAudioFile(rttm_file, model, metrics_map, dataset)
     total_metrics.append(mbaf)
 
 def write_metrics(hypotheses_path):    
     index = [ i for i, _ in enumerate(total_metrics)]
-    columns = ["Audios", "Modelos"] 
+    columns = ["Audios", "Datasets", "Modelos"] 
     rttm_files = [ mbaf.rttm_file for mbaf in total_metrics]
     modelos = [ mbaf.modelo for mbaf in total_metrics]        
-    data = {"Audios": rttm_files, "Modelos": modelos}
+    datasets = [ mbaf.dataset for mbaf in total_metrics]        
+    data = {"Audios": rttm_files, "Datasets": datasets, "Modelos": modelos}
     list_metrics = [mbaf.metrics_map for mbaf in total_metrics]
     for metrics in list_metrics:
         for metric in metrics.keys():
@@ -142,16 +159,15 @@ def write_metrics(hypotheses_path):
             else: 
                data[metric].append(metrics[metric])
 
-    metrics_df = pd.DataFrame(data, index = index, columns=columns)
-    logs_path = os.path.join(hypotheses_path, os.path.pardir, "logs")
-    
+    metrics_df = pd.DataFrame(data, index = index, columns=columns)    
     export_path = os.path.join(hypotheses_path, os.path.pardir, "metrics", "metrics.xlsx")
     metrics_df.to_excel(export_path,  index=False)
     wb = load_workbook(export_path)
     ws = wb["Sheet1"]   
     ws.column_dimensions['A'].width = 70
-    ws.column_dimensions['B'].width = 25
-    for letter in string.ascii_uppercase[2:]:
+    ws.column_dimensions['B'].width = 15
+    ws.column_dimensions['C'].width = 25
+    for letter in string.ascii_uppercase[3:]:
         ws.column_dimensions[letter].width = 35
     wb.save(export_path)
     
@@ -161,7 +177,7 @@ if __name__ == '__main__':
     parser.add_argument('-hp', '--hyphoteses_path', type=str, default='E:\Desarrollo\TFM\data\media\rttm', help='Path of the folder with hypotheses rttm files') 
     parser.add_argument('-rp', '--reference_path', type=str, default='E:\Desarrollo\TFM\subtitles\data\rttm_ref', help='Path of the folder with reference rttm files')     
     parser.add_argument('-me', '--metrics', type=str, help='List of Metrics to apply')
-    parser.add_argument('-co', '--collar', type=float, help='List of Metrics to apply')
+    parser.add_argument('-co', '--collar', type=float, help='Collar (Forgiving Threshold at the beginning and end of Segments)')
     args = parser.parse_args()
             
     files = []
@@ -171,27 +187,19 @@ if __name__ == '__main__':
                         encoding='utf-8', level=logging.DEBUG, format='%(asctime)s %(message)s', datefmt='%Y-%m-%d %H:%M:%S')            
     if args.collar is not None and args.collar > 0.5:
         logger.warning("Expected collar < 0.500")
-    
-    if os.path.exists(args.reference_path):
-        ref_rttm_files = [ref_rttm_file for ref_rttm_file in os.listdir(args.reference_path) if ref_rttm_file.lower().endswith(".rttm")]                
-        logger.info("Rttm Ref files: {ref_rttm_files}")
-        
+                                    
     if args.metrics.lower() == 'all':
         args.metrics= ''
         for me in MetricsEnum:
             args.metrics += me.name + ','
-        args.metrics = args.metrics[:-1]        
-    
-    rttm_files_list = []
-    for model_folder in os.listdir(args.hyphoteses_path):
-        model_folder_path = os.path.join(args.hyphoteses_path, model_folder)
-        if os.path.isdir(model_folder_path):
-            print(f"Processing folder: {model_folder_path}")
-            logger.info(f"Processing folder: {model_folder_path}")
-            for rttm_file in os.listdir(model_folder_path):
-                files.append(rttm_file)
-                if rttm_file in ref_rttm_files:
-                    rttm_files_list.append(rttm_file +" - "+ model_folder)
-                    executeMetrics(args.metrics.split(','), model_folder_path, args.reference_path, rttm_file)
-
-    write_metrics( args.hyphoteses_path )
+        args.metrics = args.metrics[:-1]    
+                
+    if os.path.exists(args.hyphoteses_path) and os.path.exists(args.reference_path):
+        tuplas_hyp = _buscar_by_extension_in_dataset_2_niveles(args.hyphoteses_path, ".rttm")                                                  
+        for tupla_hyp in tuplas_hyp:
+            rttm_hyp_file = tupla_hyp[0]   
+            model_subfolder = tupla_hyp[1]           
+            dataset_subfolder_path = os.path.join(args.hyphoteses_path, tupla_hyp[2])
+            executeMetrics(args.metrics.split(','), dataset_subfolder_path, model_subfolder, rttm_hyp_file, args.reference_path)
+        
+        write_metrics( args.hyphoteses_path )        

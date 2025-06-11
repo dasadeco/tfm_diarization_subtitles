@@ -8,7 +8,7 @@ import json
 import time
 from datetime import datetime
 from enum import Enum
-
+from docker.models.containers import Container
 
 ## Esto podría estar en una clase que inicie todo el paquete, y no delegar esta responsabilidad al Docker manager
 
@@ -19,6 +19,12 @@ class DockerImages(Enum):
     pyannote_pipeline ='dasaenzd/pyannote_pipeline:latest'
 
 class DockerDiarizationManager: 
+    
+    def _get_or_pull_image(self, client, image_name):
+     try:
+        return client.images.get(image_name)
+     except docker.errors.ImageNotFound:
+        return client.images.pull(image_name)
     
     def __init__(self, image_name, host_volume_path, container_volume_path='/media'):
         self.host_volume_path = Path(host_volume_path).absolute()          
@@ -42,13 +48,7 @@ class DockerDiarizationManager:
             binding = {}
             binding[self.host_volume_path] = {"bind" : container_volume_path, "mode" : "rw"}            
 
-            def get_or_pull_image(client, image_name):
-                try:
-                    return client.images.get(image_name)
-                except docker.errors.ImageNotFound:
-                    return client.images.pull(image_name)
-
-            image = get_or_pull_image(self.client, self.image_name)                                    
+            image = self._get_or_pull_image(self.client, self.image_name)                                    
             self.containers[container_name] = self.run_container(image.tags[0], container_name, binding)    
         except docker.errors.ImageNotFound as e:
             print(f"Image not found: {e}")
@@ -62,6 +62,7 @@ class DockerDiarizationManager:
             print(f"An error occurred: {e}")
             self.logger.error(f"An error occurred: {container_name} : {e}")
             sys.exit(1)
+            
 
     def stop_if_running(self, container_name):
         try:
@@ -79,12 +80,15 @@ class DockerDiarizationManager:
             self.logger.error(f"An error occurred while stopping the container: {e}")
             sys.exit(1)     
 
-    def run_container(self, image_name: str, container_name:str, volume_binding=None):        
+    def run_container(self, image_name: str, container_name:str, volume_binding=None, command=None, detach=True):        
         try:
             self.stop_if_running(container_name)
             container = self.client.containers.run(image_name, name=container_name, 
-                                                   volumes=volume_binding, detach=True)
-            self.logger.info(f"Container {container_name} started with ID: {container.id}")
+                                                   volumes=volume_binding, command=command, detach=detach)
+            if isinstance(container, Container):
+                self.logger.info(f"Container {container_name} started with ID: {container.id}")
+            else:    
+                self.logger.info(f"Container {container_name} started.")
             return container
         except docker.errors.ContainerError as e:
             print(f"Container error: {e}")
@@ -98,6 +102,18 @@ class DockerDiarizationManager:
             print(f"An error occurred: {e}")
             self.logger.error(f"An error occurred: {e}")
             sys.exit(1)
+   
+    ## En principio este contenedor tiene parámetros fijos, a excepción del valor de delta, se reutiliza `run_container` para ejecutar un contenedor
+    ## 
+    def run_converter_rttm_container(self, image_name:str='dasaenzd/converter_java_subtitles:latest', container_name:str='converter_java_subtitles', 
+                                     volume_binding=None, delta=0.0):
+        if volume_binding is None:
+            binding = {}
+            self.host_volume_converter_path = Path('./subtitles/data').absolute() 
+            self.container_volume_converter_path =  '/data'                        
+            binding[self.host_volume_converter_path] = {"bind" : self.container_volume_converter_path, "mode" : "rw"}  
+        image = self._get_or_pull_image(self.client, image_name)                                    
+        self.containers[container_name] = self.run_container(image.tags[0], container_name, binding, command="-d="+str(delta), detach=False)            
    
     def execute_command(self, container_name, param_vm, param_hft): 
         try:
@@ -128,10 +144,10 @@ class DockerDiarizationManager:
     def _check_status_file(self):        
                         
         def _in_process(visual_anim):
-            if len(visual_anim) == 8:
-                visual_anim="_"
-            else: 
-                visual_anim = visual_anim + "_"   
+            if len(visual_anim) == 50:
+                visual_anim = "_"       
+            else:    
+                visual_anim += "_"   
             return visual_anim        
         
         result_path = os.path.join(self.host_volume_path, STATUS_FILE)
@@ -142,14 +158,12 @@ class DockerDiarizationManager:
                 with open(result_path, 'r') as file:
                     status = file.readline()                    
                 visual_anim = _in_process(visual_anim)
-                self.logger.info(f"{visual_anim}\n")
-                print(f"Running {visual_anim}", end="\r", flush=True)                
+                termin = '\n' if len(visual_anim) == 50 else '\r'
+                print(f"Running {visual_anim}", end=termin, flush=True)                
                 time.sleep(1)
         file.close()          
                         
     
-    def execute_java_command():
-        pass
             
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Docker Diarization Manager")
@@ -157,7 +171,6 @@ if __name__ == '__main__':
     parser.add_argument('-cvp', '--container_volume_path', type=str, default='/media', help='Path en el contenedor donde se guardan los archivos wav')
     parser.add_argument('-img', '--image_name', type=str, default='dasaenzd/pyannote_pipeline:latest', help='Nombre de la imagen docker')    
     parser.add_argument('-par', '--params', type=str,  help='Parámetros propios para el script ') 
-    parser.add_argument('-con', '--converter', action='store_true', help='Previamente, se convierten archivos de audio y video al formato WAV para disponer de datasets')
     args = parser.parse_args()
                        
     dockerManager = DockerDiarizationManager(host_volume_path=args.host_volume_path, container_volume_path=args.container_volume_path, 

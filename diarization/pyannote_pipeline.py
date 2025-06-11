@@ -29,7 +29,6 @@ def save_status(info_text):
 def _buscar_by_extension_in_dataset(path, extension):
     resultados = []
     for carpeta_actual, subcarpetas, archivos in os.walk(path):
-        # Obtener el nombre de la carpeta actual
         nombre_carpeta = os.path.basename(carpeta_actual)
         for archivo in archivos:
             if archivo.lower().endswith(extension):
@@ -66,20 +65,15 @@ if __name__ == '__main__':
         datasets_path = os.path.join(args.volume_path, PATH_BASE_DATASETS)
         if not os.path.exists(datasets_path):
             os.makedirs(datasets_path, exist_ok=True)
-        resultados = _buscar_by_extension_in_dataset(datasets_path, ".wav") 
-        for tupla in resultados:
+        tuplas = _buscar_by_extension_in_dataset(datasets_path, ".wav") 
+        for tupla in tuplas:
             wav_audio_file = tupla[0]   
             if args.volume_path != tupla[1]:
                 wav_audio_subfolder = tupla[1]                   
                 wav_file_path = os.path.join(datasets_path, wav_audio_subfolder, wav_audio_file)                                    
                 diarization = pipeline(wav_file_path)                                   
-        
-        #wav_files = [wav_file for wav_file in os.listdir(args.volume_path) if wav_file.lower().endswith('.wav')]
-        #for wav_file in wav_files:            
-        #    wav_file_path = os.path.join(args.volume_path, wav_file)                                    
-        #    diarization = pipeline(wav_file_path)                           
-            #waveform, sample_rate = torchaudio.load(wav_file_path)
-            #diarization = pipeline({"waveform":waveform, "sample_rate":sample_rate})                        
+                #waveform, sample_rate = torchaudio.load(wav_file_path)
+                #diarization = pipeline({"waveform":waveform, "sample_rate":sample_rate})                        
                 logger.info(f'Pipeline preparada para el audio {wav_file_path} ...')
                 print(f'Pipeline preparada para el audio {wav_file_path} ...')
                 # dump the diarization output to disk using RTTM format

@@ -44,9 +44,9 @@ class ConverterToAudio:
             # Existe un path de entrada de video ??            
             if os.path.exists(self.video_media_path):
                 #dataset_tuplas_list = [[ (video,video_subfolder) for video in os.listdir(os.path.join(self.video_media_path, video_subfolder))] for video_subfolder in os.listdir(self.video_media_path) if os.path.isdir(os.path.join(self.video_media_path, video_subfolder))]
-                resultados = _buscar_by_extension_in_dataset(self.video_media_path, ".mp4")
+                tuplas = _buscar_by_extension_in_dataset(self.video_media_path, ".mp4")
                                 
-                for tupla in resultados:
+                for tupla in tuplas:
                     video_file = tupla[0]   
                     video_subfolder = tupla[1]   
                     video_file_under = video_file.replace(" ","_")
@@ -63,8 +63,8 @@ class ConverterToAudio:
             else:
                 self.logger.warning(f"Path de entrada: {self.video_media_path} con videos para convertir, no existe.")        
                 
-        resultados = _buscar_by_extension_in_dataset(self.audio_media_path, ".m4a")
-        for tupla in resultados:
+        tuplas = _buscar_by_extension_in_dataset(self.audio_media_path, ".m4a")
+        for tupla in tuplas:
             m4a_audio_file = tupla[0]   
             m4a_audio_subfolder = tupla[1]           
             m4a_audio_file_under = m4a_audio_file.replace(" ","_")
@@ -76,8 +76,8 @@ class ConverterToAudio:
             os.rename(os.path.join(self.audio_media_path, m4a_audio_file), os.path.join(self.audio_media_path, m4a_audio_file_under))    
             self.convertM4AToWav(m4a_audio_file_under)  
             
-        resultados = _buscar_by_extension_in_dataset(self.audio_media_path, ".mp3")
-        for tupla in resultados:
+        tuplas = _buscar_by_extension_in_dataset(self.audio_media_path, ".mp3")
+        for tupla in tuplas:
             mp3_audio_file = tupla[0]   
             mp3_audio_subfolder = tupla[1]           
             mp3_audio_file_under = mp3_audio_file.replace(" ","_")
@@ -89,8 +89,8 @@ class ConverterToAudio:
             os.rename(os.path.join(self.audio_media_path, mp3_audio_file), os.path.join(self.audio_media_path, mp3_audio_file_under))    
             self.convertMP3ToWav(mp3_audio_file_under)                           
                                                           
-        resultados = _buscar_by_extension_in_dataset(self.audio_media_path, ".wav")
-        for tupla in resultados:
+        tuplas = _buscar_by_extension_in_dataset(self.audio_media_path, ".wav")
+        for tupla in tuplas:
             audio_file = tupla[0]   
             if self.audio_media_path != tupla[1]:
                 audio_subfolder = tupla[1]                       
