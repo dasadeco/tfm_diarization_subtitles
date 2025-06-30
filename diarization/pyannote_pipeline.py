@@ -8,22 +8,25 @@ from pyannote.audio import Model
 import os, sys, argparse, logging
 from enum import Enum
 from datetime import datetime
+import time
+
+from pydub import AudioSegment
 import torch
 
 STATUS_FILE = 'status.txt'
-FIN="FIN"
+EXECUTION_TIME_FILE = "exec_time.txt"
 PATH_BASE_DATASETS = "datasets"
+FIN="FIN"
 
 class PipelineVersions(Enum):
     V2_1 ='speaker-diarization@2.1'
-    V3_0 ='speaker-diarization-3.0'
+    #V3_0 ='speaker-diarization-3.0'
     V3_1 ='speaker-diarization-3.1'
 
 ## Para guardar en un archivo el estado de la ejecución del script, este archivo es la manera que tiene el gestor de contenedores 
 # de saber que ha terminado la ejecución del script.
 def save_status(info_text):
-    with open(os.path.join(args.volume_path, STATUS_FILE), 'w') as info_file:
-        logger.info("abierto el archivo de estado")
+    with open(os.path.join(args.volume_path, STATUS_FILE), 'w', encoding="utf-8") as info_file:        
         info_file.write(info_text)
         
 def _buscar_by_extension_in_dataset(path, extension):
@@ -36,13 +39,14 @@ def _buscar_by_extension_in_dataset(path, extension):
     return resultados        
 
 if __name__ == '__main__':
+    print("Llamado el Pipeline de Pyannote ... ")
 ## usage: pyannote_pipeline.py [-h] [-vm VERSION_MODEL] [-hft HUGGINGFACE_TOKEN] [-vp DOCKER_VOLUME_PATH]    
     parser = argparse.ArgumentParser(description='Pyannote PIPELINE Audio Speaker Diarization')
     parser.add_argument('-vm', '--version_model', type=str, default=PipelineVersions.V3_1, help='Pipeline version')
     parser.add_argument('-hft', '--huggingface_token', type=str, help='Huggingface token')
-    parser.add_argument('-vp', '--volume_path', type=str, help='Path of the folder with the audio(.wav) files')   
-        
+    parser.add_argument('-vp', '--volume_path', type=str, help='Path of the folder with the audio(.wav) files')           
     args = parser.parse_args()  
+    print("Parseados los argumentos en el Pipeline de Pyannote ... ")
     if type(args.version_model) == PipelineVersions:
         version_model = args.version_model.value         
     else:
@@ -66,28 +70,37 @@ if __name__ == '__main__':
         if not os.path.exists(datasets_path):
             os.makedirs(datasets_path, exist_ok=True)
         tuplas = _buscar_by_extension_in_dataset(datasets_path, ".wav") 
+        if os.path.exists(os.path.join(args.volume_path, "rttm", EXECUTION_TIME_FILE)):
+            os.remove(os.path.join(args.volume_path, "rttm", EXECUTION_TIME_FILE))
         for tupla in tuplas:
             wav_audio_file = tupla[0]   
             if args.volume_path != tupla[1]:
-                wav_audio_subfolder = tupla[1]                   
-                wav_file_path = os.path.join(datasets_path, wav_audio_subfolder, wav_audio_file)                                    
-                diarization = pipeline(wav_file_path)                                   
-                #waveform, sample_rate = torchaudio.load(wav_file_path)
-                #diarization = pipeline({"waveform":waveform, "sample_rate":sample_rate})                        
-                logger.info(f'Pipeline preparada para el audio {wav_file_path} ...')
-                print(f'Pipeline preparada para el audio {wav_file_path} ...')
+                dataset_subfolder = tupla[1]                   
+                wav_file_path = os.path.join(datasets_path, dataset_subfolder, wav_audio_file)                                    
+                start_time = time.time()
+                diarization = pipeline(wav_file_path)         
+                diarization_time = time.time() - start_time
+                logger.info(f'Tiempo de diarización de {wav_file_path} : {diarization_time} segundos')                                     
+                logger.info(f'Pipeline realizada para el audio {wav_file_path} ...')
+                print(f'Pipeline realizada para el audio {wav_file_path} ...')
                 # dump the diarization output to disk using RTTM format
                 rttm_filename = wav_audio_file.replace('.wav', '.rttm')
-                logger.info(f'INICIO de la diarización del audio {wav_file_path} ...')
-                print(f'INICIO de la diarización del audio {wav_file_path} ...')
-                rttm_hyp_model_path = os.path.join(args.volume_path, "rttm", wav_audio_subfolder, version_model)
+                
+                logger.info(f'INICIO de la escritura de la diarización del audio {wav_file_path} ...')
+                print(f'INICIO de la escritura de la diarización del audio {wav_file_path} ...')
+                rttm_hyp_model_path = os.path.join(args.volume_path, "rttm", dataset_subfolder, version_model)
                 if not os.path.exists(rttm_hyp_model_path):
                     os.makedirs(rttm_hyp_model_path, exist_ok=True)
                     logger.info(f'Se crea la carpeta de salida para los RTTM: {rttm_hyp_model_path}.')
                     print(f'Se crea la carpeta de salida para los RTTM: {rttm_hyp_model_path}.')
-                with open( os.path.join(rttm_hyp_model_path, rttm_filename), "w") as rttm_file:
+                    
+                with open( os.path.join(rttm_hyp_model_path, rttm_filename), "w", encoding="utf-8") as rttm_file:
                     diarization.write_rttm(rttm_file)                 
-    
+                with open( os.path.join(args.volume_path, "rttm", EXECUTION_TIME_FILE), "a", encoding="utf-8") as execution_time_file:                       
+                    audio_Segment = AudioSegment.from_file(wav_file_path)            
+                    print(f"Duración del audio: {audio_Segment.duration_seconds}")                                          
+                    execution_time_file.write(f"{rttm_filename} {version_model} {dataset_subfolder} {diarization_time} {audio_Segment.duration_seconds}\n")
+                    
                 for turn, _, speaker in diarization.itertracks(yield_label=True):                
                     logger.debug(f'start={turn.start:.1f}s stop={turn.end:.1f}s speaker_{speaker}')
                     print(f"start={turn.start:.1f}s stop={turn.end:.1f}s speaker_{speaker}")

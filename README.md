@@ -5,11 +5,16 @@ Hervé Bredin es el autor de *Pyannote-audio* : https://github.com/hbredin
 Construyendo las Docker Images
 - Pyannote Pipeline (Python): 
 1. Ve a la carpeta "TFM/docker"
-2. Ejecutar `docker buildx build -f Dockerfile_pyannote_pipeline -t dasaenzd/pyannote_pipeline:latest ..`  Se construye la imagen (Son 9.5 GB !!!)
+2. Ejecutar `docker buildx build -f Dockerfile_pyannote_pipeline -t dasaenzd/pyannote_pipeline:latest ..`  Se construye la imagen (Son 9.5 GB !!)
 3. Ejecutar `docker push dasaenzd/pyannote_pipeline:latest`   para enviarlo a Docker Hub, a mi espacio de nombres: dasaenzd
 4. Su ejecución puede ser orquestada por el módulo docker_diariz_manager, si se quiere ejecutar manualmente:
    - el comando para ejecutar el contenedor es: `docker run --mount type=bind,source=.\\data\\media,target=/media --name pyannote_pipeline dasaenzd/pyannote_pipeline:latest`
-   - Para ejecutar un comando interactivo en el contenedor: `docker exec -ti python diarization/pyannote_pipeline.py  `
+- NeMo Pipeline (Python): 
+1. Ve a la carpeta "TFM/docker"
+2. Ejecutar `docker buildx build -f Dockerfile_nemo_pipeline -t dasaenzd/pyannote_pipeline:latest ..`  Se construye la imagen (Son  27.5 GB !!!)
+docker buildx build -f Dockerfile_nemo -t  dasaenzd/nemo_pipeline:latest ..
+3. Ejecutar `docker push dasaenzd/nemo_pipeline:latest`   para enviarlo a Docker Hub, a mi espacio de nombres: dasaenzd
+
 
 - ConverterSubtitles (Java):
 1. Ve a la carpeta "TFM/docker"

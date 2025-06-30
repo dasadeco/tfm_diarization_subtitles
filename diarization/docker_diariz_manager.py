@@ -117,15 +117,16 @@ class DockerDiarizationManager:
    
     def execute_command(self, container_name, param_vm, param_hft): 
         try:
-            exec_command = self.client.api.exec_create(self.containers[container_name].id, 
-                          ["python", container_name + ".py", "--version_model", param_vm, "--huggingface_token", param_hft, "--volume_path", self.container_volume_path])
-            #exec_command = self.client.api.exec_create(self.container_pyannote_pipeline.id, ["python", command])
-            self.logger.info(f"Executing command: {exec_command} in container {self.containers[container_name].name} ...")
-            self.client.api.exec_start(exec_command['Id'], detach=True)
-            with open(os.path.join(self.host_volume_path, STATUS_FILE), 'w') as status_file:
+            with open(os.path.join(self.host_volume_path, STATUS_FILE), 'w', encoding="utf-8") as status_file:
                 status_file.write('Inicializado el archivo de estado')
                 self.logger.info('Inicializado el archivo de estado')
-                status_file.close
+                status_file.close                        
+            exec_command = self.client.api.exec_create(self.containers[container_name].id, 
+                          ["python", container_name + ".py", "--version_model", param_vm, "--huggingface_token", param_hft, "--volume_path", self.container_volume_path])
+
+            self.logger.info(f"Executing command: {exec_command} in container {self.containers[container_name].name} ...")
+            self.client.api.exec_start(exec_command['Id'], detach=True)
+
             self._check_status_file()         
             self.stop_if_running(self.containers[container_name].name)                        
             return 0
@@ -177,8 +178,8 @@ if __name__ == '__main__':
                                              image_name=args.image_name) 
     if args.image_name is not None:   
         container_name =  args.image_name.split('/')[1].split(':')[0]  ## TODO: Podría fallar si la imagen no empieza por dasaenzd? probarlo...                      
-        args.params = json.loads(args.params) if args.params is not None else {}
-        if args.params:
-            dockerManager.execute_command(container_name, args.params['version_model'], args.params['huggingface_token'])
+        json_data = json.loads(args.params) if args.params is not None else {}
+        if json_data:
+            dockerManager.execute_command(container_name, json_data['version_model'], json_data['huggingface_token'])
     logging.disable(logging.ERROR)        
     sys.exit(0)

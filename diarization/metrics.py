@@ -1,24 +1,25 @@
 from enum import Enum
 from io import FileIO
 import string
-
-from pyannote.core import Annotation, Segment
 import argparse
 import os
 import logging
 import math
 import pandas as pd
 
+from openpyxl import load_workbook
+
+from pyannote.core import Annotation, Segment
 from pyannote.metrics.diarization import DiarizationErrorRate, DiarizationCompleteness, DiarizationCoverage, DiarizationPurity, DiarizationHomogeneity, \
     DiarizationPurityCoverageFMeasure, GreedyDiarizationErrorRate, JaccardErrorRate
 from pyannote.metrics.detection import DetectionErrorRate, DetectionAccuracy, DetectionCostFunction, DetectionPrecision, DetectionRecall, DetectionPrecisionRecallFMeasure
 from pyannote.metrics.segmentation import SegmentationCoverage, SegmentationPurity, SegmentationPurityCoverageFMeasure, SegmentationPrecision, SegmentationRecall
 from pyannote.metrics.identification import IdentificationErrorRate, IdentificationPrecision, IdentificationRecall
-from openpyxl import load_workbook
 
 RTTM = "rttm"
 RTTM_REF = "rttm_ref"
 COLLAR = 0.
+EXECUTION_TIME_FILE = "exec_time.txt"
 
 class DatasetEnum(Enum):
     canaluned = "canal.uned"
@@ -53,11 +54,14 @@ class MetricsEnum(Enum):
   IER = "Identification Error Rate"
   IdentPrec = "Identification Precision" 
   IdentRec = "Identification Recall"
+    # Performance
+  RTF = "Real Time Factor"  
+  
   
   
 class PipelineVersions(Enum):
     V2_1 ='PYANNOTE speaker-diarization@2.1'
-    V3_0 ='PYANNOTE speaker-diarization-3.0'
+    #V3_0 ='PYANNOTE speaker-diarization-3.0'
     V3_1 ='PYANNOTE speaker-diarization-3.1'  
 
 
@@ -81,64 +85,67 @@ def _buscar_by_extension_in_dataset_2_niveles(path, extension):
     resultados = []
     for carpeta_actual, carpetas, _ in os.walk(path):
         for carpeta in carpetas:
-           for subcarpeta_actual, subcarpetas, archivos in os.walk(os.path.join(path,carpeta)): 
-            #nombre_carpeta = os.path.basename(subcarpeta)
+           for subcarpeta_actual, _, archivos in os.walk(os.path.join(path, carpeta)): 
             nombre_subcarpeta = os.path.basename(subcarpeta_actual)
             for archivo in archivos:
                 if archivo.lower().endswith(extension):
                     resultados.append((archivo, nombre_subcarpeta, carpeta))
     return resultados
   
-def executeMetrics(metrics:list, dataset_subfolder_path, model, rttm_file, rttms_ref_path,  collar=COLLAR):
+def executeMetrics(metrics:list, rttms_hyp_path, dataset_subfolder_path, model, rttm_file, rttms_ref_path, collar=COLLAR):
       
     def _create_annot(file:FileIO, annot:Annotation)->Annotation:              
       for line in file:
         if line.strip() != "":
             data_list = line.split(" ")
             annot[Segment( math.trunc(float(data_list[3])*100),     
-                math.trunc(float(data_list[3])*100) + math.trunc(float(data_list[4])*100))] = \
-                data_list[7]
+                math.trunc(float(data_list[3])*100) + math.trunc(float(data_list[4])*100))] = data_list[7]
       return annot
                                             
     dataset = os.path.basename(dataset_subfolder_path)
     hyp_rttm_file_path = os.path.join(dataset_subfolder_path, model, rttm_file)
     ref_rttm_file_path = os.path.join(rttms_ref_path, dataset, rttm_file)
-    hypothesis = Annotation(rttm_file, model)
-    with open(hyp_rttm_file_path, 'r') as hyp_file:
-        hypothesis = _create_annot(hyp_file, hypothesis)
-    hyp_file.close()    
-        
-    reference = Annotation(rttm_file, RTTM_REF)
-    with open(ref_rttm_file_path, 'r') as ref_file:
-        reference = _create_annot(ref_file, reference)
-    ref_file.close()    
+    hypothesis, reference = None, None
+    if os.path.exists(hyp_rttm_file_path):    
+        hypothesis = Annotation(rttm_file, model)
+        with open(hyp_rttm_file_path, 'r') as hyp_file:
+            hypothesis = _create_annot(hyp_file, hypothesis)
+        hyp_file.close()    
+    
+    if os.path.exists(ref_rttm_file_path):    
+        reference = Annotation(rttm_file, RTTM_REF)
+        with open(ref_rttm_file_path, 'r') as ref_file:
+            reference = _create_annot(ref_file, reference)
+        ref_file.close()    
      
     metrics_map = {}
-                                          
+
+                                      
     for metric in metrics:
         metric = metric.strip()        
-        match metric:        
-            case MetricsEnum.DetAcc.name : metrics_map[ MetricsEnum.DetAcc.value] = DetectionAccuracy(collar)(reference, hypothesis)
-            case MetricsEnum.DetCost.name : metrics_map[ MetricsEnum.DetCost.value] = DetectionCostFunction(collar)(reference, hypothesis)
-            case MetricsEnum.DetER.name : metrics_map[ MetricsEnum.DetER.value] = DetectionErrorRate(collar)(reference, hypothesis)
-            case MetricsEnum.DetPrec.name : metrics_map[ MetricsEnum.DetPrec.value] = DetectionPrecision(collar)(reference, hypothesis)
-            case MetricsEnum.DetRec.name : metrics_map[ MetricsEnum.DetRec.value] = DetectionRecall(collar)(reference, hypothesis)
-            case MetricsEnum.DetFMeas.name : metrics_map[ MetricsEnum.DetFMeas.value] = DetectionPrecisionRecallFMeasure(collar)(reference, hypothesis)
-            case MetricsEnum.SegPur.name : metrics_map[ MetricsEnum.SegPur.value] = SegmentationPurity(collar)(reference, hypothesis)
-            case MetricsEnum.SegCover.name : metrics_map[ MetricsEnum.SegCover.value] = SegmentationCoverage(collar)(reference, hypothesis)
-            case MetricsEnum.SegFMeas.name : metrics_map[ MetricsEnum.SegFMeas.value] = SegmentationPurityCoverageFMeasure(collar)(reference, hypothesis)
-            case MetricsEnum.DER.name : metrics_map[ MetricsEnum.DER.value] = DiarizationErrorRate(collar)(reference, hypothesis)
-            case MetricsEnum.DiariCompl.name : metrics_map[ MetricsEnum.DiariCompl.value] = DiarizationCompleteness(collar)(reference, hypothesis)
-            case MetricsEnum.DiariCover.name : metrics_map[ MetricsEnum.DiariCover.value] = DiarizationCoverage(collar)(reference, hypothesis)
-            case MetricsEnum.DiariHomog.name : metrics_map[ MetricsEnum.DiariHomog.value] = DiarizationHomogeneity(collar)(reference, hypothesis)
-            case MetricsEnum.DiariPur.name : metrics_map[ MetricsEnum.DiariPur.value] = DiarizationPurity(collar)(reference, hypothesis)
-            case MetricsEnum.DiariFMeas.name : metrics_map[ MetricsEnum.DiariFMeas.value] = DiarizationPurityCoverageFMeasure(collar)(reference, hypothesis)
-            case MetricsEnum.GreedyDER.name : metrics_map[ MetricsEnum.GreedyDER.value] = GreedyDiarizationErrorRate(collar)(reference, hypothesis)
-            case MetricsEnum.JER.name : metrics_map[ MetricsEnum.JER.value] = JaccardErrorRate(collar)(reference, hypothesis)
-            case MetricsEnum.IER.name : metrics_map[ MetricsEnum.IER.value] = IdentificationErrorRate(collar)(reference, hypothesis)
-            case MetricsEnum.IdentPrec.name : metrics_map[ MetricsEnum.IdentPrec.value] = IdentificationPrecision(collar)(reference, hypothesis)
-            case MetricsEnum.IdentRec.name : metrics_map[ MetricsEnum.IdentRec.value] = IdentificationRecall(collar)(reference, hypothesis)
-
+        match metric:
+            case MetricsEnum.DetAcc.name : metrics_map[ MetricsEnum.DetAcc.value] = DetectionAccuracy(collar)(reference, hypothesis) if hypothesis is not None and reference is not None else 'NA'
+            case MetricsEnum.DetCost.name : metrics_map[ MetricsEnum.DetCost.value] = DetectionCostFunction(collar)(reference, hypothesis) if hypothesis is not None and reference is not None else 'NA'
+            case MetricsEnum.DetER.name : metrics_map[ MetricsEnum.DetER.value] = DetectionErrorRate(collar)(reference, hypothesis) if hypothesis is not None and reference is not None else 'NA'
+            case MetricsEnum.DetPrec.name : metrics_map[ MetricsEnum.DetPrec.value] = DetectionPrecision(collar)(reference, hypothesis) if hypothesis is not None and reference is not None else 'NA'
+            case MetricsEnum.DetRec.name : metrics_map[ MetricsEnum.DetRec.value] = DetectionRecall(collar)(reference, hypothesis) if hypothesis is not None and reference is not None else 'NA'
+            case MetricsEnum.DetFMeas.name : metrics_map[ MetricsEnum.DetFMeas.value] = DetectionPrecisionRecallFMeasure(collar)(reference, hypothesis) if hypothesis is not None and reference is not None else 'NA'
+            case MetricsEnum.SegPur.name : metrics_map[ MetricsEnum.SegPur.value] = SegmentationPurity(collar)(reference, hypothesis) if hypothesis is not None and reference is not None else 'NA'
+            case MetricsEnum.SegCover.name : metrics_map[ MetricsEnum.SegCover.value] = SegmentationCoverage(collar)(reference, hypothesis) if hypothesis is not None and reference is not None else 'NA'
+            case MetricsEnum.SegFMeas.name : metrics_map[ MetricsEnum.SegFMeas.value] = SegmentationPurityCoverageFMeasure(collar)(reference, hypothesis) if hypothesis is not None and reference is not None else 'NA'
+            case MetricsEnum.DER.name : metrics_map[ MetricsEnum.DER.value] = DiarizationErrorRate(collar)(reference, hypothesis) if hypothesis is not None and reference is not None else 'NA'
+            case MetricsEnum.DiariCompl.name : metrics_map[ MetricsEnum.DiariCompl.value] = DiarizationCompleteness(collar)(reference, hypothesis) if hypothesis is not None and reference is not None else 'NA'
+            case MetricsEnum.DiariCover.name : metrics_map[ MetricsEnum.DiariCover.value] = DiarizationCoverage(collar)(reference, hypothesis) if hypothesis is not None and reference is not None else 'NA'
+            case MetricsEnum.DiariHomog.name : metrics_map[ MetricsEnum.DiariHomog.value] = DiarizationHomogeneity(collar)(reference, hypothesis) if hypothesis is not None and reference is not None else 'NA'
+            case MetricsEnum.DiariPur.name : metrics_map[ MetricsEnum.DiariPur.value] = DiarizationPurity(collar)(reference, hypothesis) if hypothesis is not None and reference is not None else 'NA'
+            case MetricsEnum.DiariFMeas.name : metrics_map[ MetricsEnum.DiariFMeas.value] = DiarizationPurityCoverageFMeasure(collar)(reference, hypothesis) if hypothesis is not None and reference is not None else 'NA'
+            case MetricsEnum.GreedyDER.name : metrics_map[ MetricsEnum.GreedyDER.value] = GreedyDiarizationErrorRate(collar)(reference, hypothesis) if hypothesis is not None and reference is not None else 'NA'
+            case MetricsEnum.JER.name : metrics_map[ MetricsEnum.JER.value] = JaccardErrorRate(collar)(reference, hypothesis) if hypothesis is not None and reference is not None else 'NA'
+            case MetricsEnum.IER.name : metrics_map[ MetricsEnum.IER.value] = IdentificationErrorRate(collar)(reference, hypothesis) if hypothesis is not None and reference is not None else 'NA'
+            case MetricsEnum.IdentPrec.name : metrics_map[ MetricsEnum.IdentPrec.value] = IdentificationPrecision(collar)(reference, hypothesis) if hypothesis is not None and reference is not None else 'NA'
+            case MetricsEnum.IdentRec.name : metrics_map[ MetricsEnum.IdentRec.value] = IdentificationRecall(collar)(reference, hypothesis) if hypothesis is not None and reference is not None else 'NA'
+            #La métrica de rendimiento lleva un proceso totalmente distinto
+            case MetricsEnum.RTF.name : metrics_map[MetricsEnum.RTF.value] = calcula_ratio(rttms_hyp_path, dataset_subfolder_path, model, rttm_file) if hypothesis is not None else 'NA'
     mbaf = MetricsByAudioFile(rttm_file, model, metrics_map, dataset)
     total_metrics.append(mbaf)
 
@@ -171,6 +178,23 @@ def write_metrics(hypotheses_path):
         ws.column_dimensions[letter].width = 35
     wb.save(export_path)
     
+## Buscamos el archivo en el que está guardado el tiempo de ejecución del archivo de ese dataset usando ese modelo    
+def calcula_ratio(base_rttms_hyp_path, dataset_subfolder_path, model, rttm_file):        
+    rtf = 'NA'   
+    exec_file_path = os.path.join(base_rttms_hyp_path, EXECUTION_TIME_FILE)
+    dataset = os.path.basename(dataset_subfolder_path)
+    with open(exec_file_path, 'r', encoding="utf-8") as exec_file:
+        for line in exec_file:
+            word = line.rstrip().split(" ")
+            if rttm_file == word[0] and model == word[1] and dataset == word[2]:
+                exec_time = word[3]
+                duration = word[4]        
+                break
+    if rttm_file == word[0] and model == word[1] and dataset == word[2]:
+        rtf = float(exec_time)/float(duration)        
+        print(f"Ratio de procesamiento del audio {rttm_file.replace('.rttm', '')}: {str(rtf)}")                
+    return rtf
+            
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Pyannote Metrics')
@@ -196,10 +220,13 @@ if __name__ == '__main__':
                 
     if os.path.exists(args.hyphoteses_path) and os.path.exists(args.reference_path):
         tuplas_hyp = _buscar_by_extension_in_dataset_2_niveles(args.hyphoteses_path, ".rttm")                                                  
+                       
         for tupla_hyp in tuplas_hyp:
             rttm_hyp_file = tupla_hyp[0]   
+            
             model_subfolder = tupla_hyp[1]           
             dataset_subfolder_path = os.path.join(args.hyphoteses_path, tupla_hyp[2])
-            executeMetrics(args.metrics.split(','), dataset_subfolder_path, model_subfolder, rttm_hyp_file, args.reference_path)
-        
+            executeMetrics(args.metrics.split(','), args.hyphoteses_path, dataset_subfolder_path, model_subfolder, \
+                rttm_hyp_file, args.reference_path)
+
         write_metrics( args.hyphoteses_path )        

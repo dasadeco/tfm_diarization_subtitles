@@ -18,7 +18,7 @@ if __name__ == '__main__':
     parser.add_argument('-hp', '--hyphoteses_path', type=str, default='E:\Desarrollo\TFM\data\media\rttm', help='Path de la carpeta con archivos rttm hipotesis.') 
     parser.add_argument('-rp', '--reference_path', type=str, default='E:\Desarrollo\TFM\subtitles\data\rttm_ref', help='Path de la carpeta con archivos rttm de referencia.')     
     parser.add_argument('-me', '--metrics', type=str, default='all', help='Lista de Metricas de Diarización a aplicar')
-    parser.add_argument('-co', '--collar', type=float, default=0.0, help='Collar (Umbral de tiempo que se concede al principio y al final de cada segmento de los RTTM)')
+    parser.add_argument('-co', '--collar', type=float, default=0.0, help='Collar (Umbral de tiempo que se concede al principio y al final de cada segmento)')
         
     args = parser.parse_args()
 
