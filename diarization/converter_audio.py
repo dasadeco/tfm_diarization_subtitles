@@ -51,7 +51,7 @@ class ConverterToAudio:
                     video_subfolder = tupla[1]   
                     video_file_under = video_file.replace(" ","_")
                     os.rename(os.path.join(self.video_media_path, video_subfolder, video_file), os.path.join(self.video_media_path, video_subfolder, video_file_under))    
-                    self.convertVideoToAudio(video_file_under, video_subfolder)                
+                    self.convert_video_to_audio(video_file_under, video_subfolder)                
                     
                 ## En caso de que los videos MP4 no vengan agrupados en carpetas de Datasets, sino en la misma carpeta 
                 video_files = [video for video in os.listdir(self.video_media_path) if video.lower().endswith(".mp4")]
@@ -59,7 +59,7 @@ class ConverterToAudio:
                 for video_file in video_files:          
                     video_file_under = video_file.replace(" ","_")
                     os.rename(os.path.join(self.video_media_path, video_file), os.path.join(self.video_media_path, video_file_under))    
-                    self.convertVideoToAudio(video_file_under)
+                    self.convert_video_to_audio(video_file_under)
             else:
                 self.logger.warning(f"Path de entrada: {self.video_media_path} con videos para convertir, no existe.")        
                 
@@ -69,12 +69,12 @@ class ConverterToAudio:
             m4a_audio_subfolder = tupla[1]           
             m4a_audio_file_under = m4a_audio_file.replace(" ","_")
             os.rename(os.path.join(self.audio_media_path, m4a_audio_subfolder, m4a_audio_file), os.path.join(self.audio_media_path, m4a_audio_subfolder, m4a_audio_file_under))    
-            self.convertM4AToWav(m4a_audio_file_under, m4a_audio_subfolder)            
+            self.convert_M4A_to_Wav(m4a_audio_file_under, m4a_audio_subfolder)            
         ## En caso de que los audios M4A no vengan agrupados en carpetas de Datasets, sino en la misma carpeta 
         for m4a_audio_file in [m4a_audio for m4a_audio in os.listdir(self.audio_media_path) if m4a_audio.lower().endswith(".m4a")]:
             m4a_audio_file_under = m4a_audio_file.replace(" ","_")
             os.rename(os.path.join(self.audio_media_path, m4a_audio_file), os.path.join(self.audio_media_path, m4a_audio_file_under))    
-            self.convertM4AToWav(m4a_audio_file_under)  
+            self.convert_M4A_to_Wav(m4a_audio_file_under)  
             
         tuplas = _buscar_by_extension_in_dataset(self.audio_media_path, ".mp3")
         for tupla in tuplas:
@@ -82,12 +82,12 @@ class ConverterToAudio:
             mp3_audio_subfolder = tupla[1]           
             mp3_audio_file_under = mp3_audio_file.replace(" ","_")
             os.rename(os.path.join(self.audio_media_path, mp3_audio_subfolder, mp3_audio_file), os.path.join(self.audio_media_path, mp3_audio_subfolder, mp3_audio_file_under))    
-            self.convertMP3ToWav(mp3_audio_file_under, mp3_audio_subfolder)            
+            self.convert_MP3_to_Wav(mp3_audio_file_under, mp3_audio_subfolder)            
         ## En caso de que los audios MP3 no vengan agrupados en carpetas de Datasets, sino en la misma carpeta                
         for mp3_audio_file in [mp3_audio for mp3_audio in os.listdir(self.audio_media_path) if mp3_audio.lower().endswith(".mp3")]:
             mp3_audio_file_under = mp3_audio_file.replace(" ","_")
             os.rename(os.path.join(self.audio_media_path, mp3_audio_file), os.path.join(self.audio_media_path, mp3_audio_file_under))    
-            self.convertMP3ToWav(mp3_audio_file_under)                           
+            self.convert_MP3_to_Wav(mp3_audio_file_under)                           
                                                           
         tuplas = _buscar_by_extension_in_dataset(self.audio_media_path, ".wav")
         for tupla in tuplas:
@@ -100,6 +100,8 @@ class ConverterToAudio:
                     os.mkdir(os.path.join(self.output_media_path, audio_subfolder))
                     self.logger.warning(f"Creamos el path de audio de entrada: {str(os.path.join(self.output_media_path, audio_subfolder))}, para el dataset {audio_subfolder}")            
                 shutil.copy2(os.path.join(self.audio_media_path, audio_subfolder, audio_file_under), os.path.join(self.output_media_path, audio_subfolder, audio_file_under))
+                
+                self.convert_stereo_to_mono(os.path.join(self.output_media_path, audio_subfolder, audio_file_under))                
                 self.logger.debug(f"Copiado {audio_file_under} a {self.output_media_path}.")
         ## En caso de que los audios WAV no vengan agrupados en carpetas de Datasets, sino en la misma carpeta                    
         for audio_file in [audio_file for audio_file in os.listdir(self.audio_media_path) if audio_file.lower().endswith(".wav")]:
@@ -107,6 +109,8 @@ class ConverterToAudio:
                 audio_file_under = audio_file.replace(" ","_")
                 os.rename(os.path.join(self.audio_media_path, audio_file), os.path.join(self.audio_media_path, audio_file_under))    
                 shutil.copy2(os.path.join(self.audio_media_path, audio_file_under), os.path.join(self.output_media_path, audio_file_under))                   
+                
+                self.convert_stereo_to_mono(os.path.join(self.output_media_path, audio_file_under))
                 self.logger.debug(f"Copiado {audio_file_under} a {self.output_media_path}.")
                 
        except Exception as e:
@@ -114,9 +118,13 @@ class ConverterToAudio:
             raise e    
        self.logger.debug(f"Conversiones finalizadas.")
 
+    def convert_stereo_to_mono(self, path_wav_file):
+        audio_file = AudioSegment.from_wav(path_wav_file)
+        audio_file = audio_file.set_channels(1)    
+        audio_file.export(path_wav_file, format="wav")
         
      # Convert MP4 video to WAV audio   
-    def convertVideoToAudio(self, input_file, dataset_subfolder=None):
+    def convert_video_to_audio(self, input_file, dataset_subfolder=None):
         output_file = input_file.replace('.mp4', '.wav')
         if dataset_subfolder is None:
             input_path = os.path.join(self.video_media_path, input_file)
@@ -131,7 +139,7 @@ class ConverterToAudio:
         audio.close()        
         self.logger.debug(f"Convertido {input_file} a {output_file}.")
 
-    def convertM4AToWav(self, m4a_audio_file, dataset_subfolder=None):
+    def convert_M4A_to_Wav(self, m4a_audio_file, dataset_subfolder=None):
         if dataset_subfolder is None:            
             m4a_audio_filepath = os.path.join(self.audio_media_path, m4a_audio_file) 
         else:
@@ -139,12 +147,12 @@ class ConverterToAudio:
         m4a_wrapper = AudioSegment.from_file(m4a_audio_filepath, format='m4a')
         wav_audio_file = m4a_audio_file.replace('.m4a', '.wav').replace('.M4A', '.wav')
         if dataset_subfolder is None:
-            m4a_wrapper.export(os.path.join(self.audio_media_path, wav_audio_file), format='wav')
+            m4a_wrapper.export(os.path.join(self.audio_media_path, wav_audio_file), format='wav', )
         else:    
             m4a_wrapper.export(os.path.join(self.audio_media_path, dataset_subfolder, wav_audio_file), format='wav')
         self.logger.debug(f"Convertido {m4a_audio_file} a {wav_audio_file}.")
             
-    def convertMP3ToWav(self, mp3_audio_file, dataset_subfolder=None):
+    def convert_MP3_to_Wav(self, mp3_audio_file, dataset_subfolder=None):
         if dataset_subfolder is None:            
             mp3_audio_filepath = os.path.join(self.audio_media_path, mp3_audio_file) 
         else:        

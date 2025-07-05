@@ -20,6 +20,8 @@ RTTM = "rttm"
 RTTM_REF = "rttm_ref"
 COLLAR = 0.
 EXECUTION_TIME_FILE = "exec_time.txt"
+EXECUTION_NEMO_TIME_FILE = "NEMO_exec_time.txt"
+EXECUTION_PYANNOTE_TIME_FILE = "PYANNOTE_exec_time.txt"
 
 class DatasetEnum(Enum):
     canaluned = "canal.uned"
@@ -59,15 +61,14 @@ class MetricsEnum(Enum):
   
   
   
-class PipelineVersions(Enum):
-    V2_1 ='PYANNOTE speaker-diarization@2.1'
-    #V3_0 ='PYANNOTE speaker-diarization-3.0'
-    V3_1 ='PYANNOTE speaker-diarization-3.1'  
+class PipelineEnum(Enum):
+    PYANNOTE ='PYANNOTE'
+    NEMO ='NEMO'  
 
 
 class MetricsByAudioFile():    
     #Solo Pipelines de Pyannote de momento
-    def __init__(self, rttm_file:str, modelo:PipelineVersions, metrics_map:dict, dataset=DatasetEnum.canaluned):
+    def __init__(self, rttm_file:str, modelo:Enum, metrics_map:dict, dataset=DatasetEnum.canaluned):
         self.rttm_file = rttm_file
         self.modelo = modelo
         self.metrics_map = metrics_map
@@ -92,7 +93,7 @@ def _buscar_by_extension_in_dataset_2_niveles(path, extension):
                     resultados.append((archivo, nombre_subcarpeta, carpeta))
     return resultados
   
-def executeMetrics(metrics:list, rttms_hyp_path, dataset_subfolder_path, model, rttm_file, rttms_ref_path, collar=COLLAR):
+def executeMetrics(metrics:list, rttms_hyp_path, dataset_subfolder_path, model, rttm_file, rttms_ref_path, pipeline, collar=COLLAR):
       
     def _create_annot(file:FileIO, annot:Annotation)->Annotation:              
       for line in file:
@@ -145,7 +146,7 @@ def executeMetrics(metrics:list, rttms_hyp_path, dataset_subfolder_path, model, 
             case MetricsEnum.IdentPrec.name : metrics_map[ MetricsEnum.IdentPrec.value] = IdentificationPrecision(collar)(reference, hypothesis) if hypothesis is not None and reference is not None else 'NA'
             case MetricsEnum.IdentRec.name : metrics_map[ MetricsEnum.IdentRec.value] = IdentificationRecall(collar)(reference, hypothesis) if hypothesis is not None and reference is not None else 'NA'
             #La métrica de rendimiento lleva un proceso totalmente distinto
-            case MetricsEnum.RTF.name : metrics_map[MetricsEnum.RTF.value] = calcula_ratio(rttms_hyp_path, dataset_subfolder_path, model, rttm_file) if hypothesis is not None else 'NA'
+            case MetricsEnum.RTF.name : metrics_map[MetricsEnum.RTF.value] = calcula_ratio(rttms_hyp_path, dataset_subfolder_path, model, rttm_file, pipeline) if hypothesis is not None else 'NA'
     mbaf = MetricsByAudioFile(rttm_file, model, metrics_map, dataset)
     total_metrics.append(mbaf)
 
@@ -179,9 +180,9 @@ def write_metrics(hypotheses_path):
     wb.save(export_path)
     
 ## Buscamos el archivo en el que está guardado el tiempo de ejecución del archivo de ese dataset usando ese modelo    
-def calcula_ratio(base_rttms_hyp_path, dataset_subfolder_path, model, rttm_file):        
+def calcula_ratio(base_rttms_hyp_path, dataset_subfolder_path, model, rttm_file, pipeline:str):        
     rtf = 'NA'   
-    exec_file_path = os.path.join(base_rttms_hyp_path, EXECUTION_TIME_FILE)
+    exec_file_path = os.path.join(base_rttms_hyp_path, pipeline + '_' + EXECUTION_TIME_FILE)
     dataset = os.path.basename(dataset_subfolder_path)
     with open(exec_file_path, 'r', encoding="utf-8") as exec_file:
         for line in exec_file:
@@ -200,7 +201,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Pyannote Metrics')
     parser.add_argument('-hp', '--hyphoteses_path', type=str, default='E:\Desarrollo\TFM\data\media\rttm', help='Path of the folder with hypotheses rttm files') 
     parser.add_argument('-rp', '--reference_path', type=str, default='E:\Desarrollo\TFM\subtitles\data\rttm_ref', help='Path of the folder with reference rttm files')     
-    parser.add_argument('-me', '--metrics', type=str, help='List of Metrics to apply')
+    parser.add_argument('-me', '--metrics_list', type=str, help='List of Metrics to apply')
     parser.add_argument('-co', '--collar', type=float, help='Collar (Forgiving Threshold at the beginning and end of Segments)')
     args = parser.parse_args()
             
@@ -212,21 +213,21 @@ if __name__ == '__main__':
     if args.collar is not None and args.collar > 0.5:
         logger.warning("Expected collar < 0.500")
                                     
-    if args.metrics.lower() == 'all':
-        args.metrics= ''
+    if args.metrics_list.lower() == 'all':
+        args.metrics_list= ''
         for me in MetricsEnum:
-            args.metrics += me.name + ','
-        args.metrics = args.metrics[:-1]    
+            args.metrics_list += me.name + ','
+        args.metrics_list = args.metrics_list[:-1]    
                 
     if os.path.exists(args.hyphoteses_path) and os.path.exists(args.reference_path):
         tuplas_hyp = _buscar_by_extension_in_dataset_2_niveles(args.hyphoteses_path, ".rttm")                                                  
                        
         for tupla_hyp in tuplas_hyp:
-            rttm_hyp_file = tupla_hyp[0]   
-            
+            rttm_hyp_file = tupla_hyp[0]               
             model_subfolder = tupla_hyp[1]           
             dataset_subfolder_path = os.path.join(args.hyphoteses_path, tupla_hyp[2])
-            executeMetrics(args.metrics.split(','), args.hyphoteses_path, dataset_subfolder_path, model_subfolder, \
-                rttm_hyp_file, args.reference_path)
+            pipeline = PipelineEnum.PYANNOTE.name if 'speaker-diarization' in model_subfolder else PipelineEnum.NEMO.name
+            executeMetrics(args.metrics_list.split(','), args.hyphoteses_path, dataset_subfolder_path, model_subfolder, \
+                rttm_hyp_file, args.reference_path, pipeline)
 
         write_metrics( args.hyphoteses_path )        

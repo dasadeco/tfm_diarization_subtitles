@@ -17,6 +17,7 @@ FIN="FIN"
 
 class DockerImages(Enum):
     pyannote_pipeline ='dasaenzd/pyannote_pipeline:latest'
+    nemo_pipeline = 'dasaenzd/nemo_pipeline:latest'
 
 class DockerDiarizationManager: 
     
@@ -26,7 +27,7 @@ class DockerDiarizationManager:
      except docker.errors.ImageNotFound:
         return client.images.pull(image_name)
     
-    def __init__(self, image_name, host_volume_path, container_volume_path='/media'):
+    def __init__(self, image_name_list, host_volume_path, container_volume_path='/media'):
         self.host_volume_path = Path(host_volume_path).absolute()          
         logs_path = os.path.join(self.host_volume_path, "logs")
         if not os.path.exists(logs_path):
@@ -34,34 +35,36 @@ class DockerDiarizationManager:
         self.logger = logging.getLogger(__name__)
         logging.basicConfig(filename=f'{logs_path}/docker_manager_{datetime.now().strftime("%Y%m%d%H%M%S")}.log',
                             encoding='utf-8', level=logging.DEBUG, format='%(asctime)s %(message)s', datefmt='%Y-%m-%d %H:%M:%S')        
-        self.logger.info("Empezando el MANAGER DE DOCKER para  Diarización !!!!")        
+        self.logger.info("Inicializando el MANAGER DE DOCKER para  Diarización !!!!")        
         
         self.client = docker.from_env()                
         self.container_volume_path = container_volume_path
         self.containers = {}   # Diccionario de contenedores de los que este manager se va a hacer cargo
-        if type(image_name) == DockerImages:
-            self.image_name = image_name.value
-        else:
-            self.image_name = image_name
-        container_name = self.image_name.split('/')[1].split(':')[0]            
-        try:
-            binding = {}
-            binding[self.host_volume_path] = {"bind" : container_volume_path, "mode" : "rw"}            
+        if image_name_list is not None and len(image_name_list)>0:
+            for image_name in image_name_list:
+                if type(image_name) == DockerImages:
+                    self.image_name = image_name.value
+                else:
+                    self.image_name = image_name
+                container_name = self.image_name.split('/')[1].split(':')[0]            
+                try:
+                    binding = {}
+                    binding[self.host_volume_path] = {"bind" : container_volume_path, "mode" : "rw"}            
 
-            image = self._get_or_pull_image(self.client, self.image_name)                                    
-            self.containers[container_name] = self.run_container(image.tags[0], container_name, binding)    
-        except docker.errors.ImageNotFound as e:
-            print(f"Image not found: {e}")
-            self.logger.error(f"Image not found: {container_name} : {e}")
-            sys.exit(1)
-        except docker.errors.APIError as e:
-            print(f"API error: {e}")
-            self.logger.error(f"API error: {container_name} : {e}")    
-            sys.exit(1)
-        except Exception as e:
-            print(f"An error occurred: {e}")
-            self.logger.error(f"An error occurred: {container_name} : {e}")
-            sys.exit(1)
+                    image = self._get_or_pull_image(self.client, self.image_name)                                    
+                    self.containers[container_name] = self.run_container(image.tags[0], container_name, binding)    
+                except docker.errors.ImageNotFound as e:
+                    print(f"Image not found: {e}")
+                    self.logger.error(f"Image not found: {container_name} : {e}")
+                    sys.exit(1)
+                except docker.errors.APIError as e:
+                    print(f"API error: {e}")
+                    self.logger.error(f"API error: {container_name} : {e}")    
+                    sys.exit(1)
+                except Exception as e:
+                    print(f"An error occurred: {e}")
+                    self.logger.error(f"An error occurred: {container_name} : {e}")
+                    sys.exit(1)
             
 
     def stop_if_running(self, container_name):
@@ -113,7 +116,8 @@ class DockerDiarizationManager:
             self.container_volume_converter_path =  '/data'                        
             binding[self.host_volume_converter_path] = {"bind" : self.container_volume_converter_path, "mode" : "rw"}  
         image = self._get_or_pull_image(self.client, image_name)                                    
-        self.containers[container_name] = self.run_container(image.tags[0], container_name, binding, command="-d="+str(delta), detach=False)            
+        #self.containers[container_name] = self.run_container(image.tags[0], container_name, binding, command="-d="+str(delta), detach=False)            
+        self.run_container(image.tags[0], container_name, binding, command="-d="+str(delta), detach=False)
    
     def execute_command(self, container_name, param_vm, param_hft): 
         try:
@@ -122,7 +126,7 @@ class DockerDiarizationManager:
                 self.logger.info('Inicializado el archivo de estado')
                 status_file.close                        
             exec_command = self.client.api.exec_create(self.containers[container_name].id, 
-                          ["python", container_name + ".py", "--version_model", param_vm, "--huggingface_token", param_hft, "--volume_path", self.container_volume_path])
+                          ["python", container_name + ".py", "--pipeline_model", param_vm, "--huggingface_token", param_hft, "--volume_path", self.container_volume_path])
 
             self.logger.info(f"Executing command: {exec_command} in container {self.containers[container_name].name} ...")
             self.client.api.exec_start(exec_command['Id'], detach=True)
@@ -145,7 +149,7 @@ class DockerDiarizationManager:
     def _check_status_file(self):        
                         
         def _in_process(visual_anim):
-            if len(visual_anim) == 50:
+            if len(visual_anim) == 60:
                 visual_anim = "_"       
             else:    
                 visual_anim += "_"   
@@ -159,7 +163,7 @@ class DockerDiarizationManager:
                 with open(result_path, 'r') as file:
                     status = file.readline()                    
                 visual_anim = _in_process(visual_anim)
-                termin = '\n' if len(visual_anim) == 50 else '\r'
+                termin = '\n' if len(visual_anim) == 60 else '\r'
                 print(f"Running {visual_anim}", end=termin, flush=True)                
                 time.sleep(1)
         file.close()          
@@ -180,6 +184,6 @@ if __name__ == '__main__':
         container_name =  args.image_name.split('/')[1].split(':')[0]  ## TODO: Podría fallar si la imagen no empieza por dasaenzd? probarlo...                      
         json_data = json.loads(args.params) if args.params is not None else {}
         if json_data:
-            dockerManager.execute_command(container_name, json_data['version_model'], json_data['huggingface_token'])
+            dockerManager.execute_command(container_name, json_data['pipeline_model'], json_data['huggingface_token'])
     logging.disable(logging.ERROR)        
     sys.exit(0)
