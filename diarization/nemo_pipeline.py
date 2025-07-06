@@ -166,7 +166,7 @@ if __name__ == '__main__':
             if not os.path.exists(os.path.join(datasets_path, CONFIG_GENERAL_DIAR_INF_FILENAME)):
                 print("Descargamos el archivo YAM para la configuración general de Inferencia de Diarización de Nemo")
                 logger.info("Descargamos el archivo YAM para la configuración general de Inferencia de Diarización de Nemo")
-                wget.download(CONFIG_GENERAL_DIAR_INF_URL, CONFIG_GENERAL_DIAR_INF_FILENAME)
+                wget.download(CONFIG_GENERAL_DIAR_INF_URL, os.path.join(datasets_path, CONFIG_GENERAL_DIAR_INF_FILENAME))
             config = OmegaConf.load(os.path.join(datasets_path, CONFIG_GENERAL_DIAR_INF_FILENAME))
             #print(OmegaConf.to_yaml(config))  ## Descomentar si queremos ver la config. por defecto.
             print(f"El tipo de dispositivo de proceso es {device.type}")
@@ -209,3 +209,12 @@ if __name__ == '__main__':
                 print(f"Duración del audio: {audio_Segment.duration_seconds}")                                          
                 logger.info(f"Duración del audio: {audio_Segment.duration_seconds}")                                          
                 execution_time_file.write(f"{rttm_filename} {combined_models_subfolder_name} {dataset_subfolder} {diarization_time} {audio_Segment.duration_seconds}\n")            
+            print(f'FIN de la diarización por NeMo del audio {wav_file_path}.')       # Imprime a stdout el fin de la diarización de uno de los archivos       
+            logger.info(f'FIN de la diarización por NeMo del audio {wav_file_path}.') # Imprime al archivo de logging el fin de la diarización de uno de los archivos               
+            save_status(f'FIN de la diarizacion por NeMo del audio {wav_file_path}.') # Imprime al archivo de estado el fin de la diarización de uno de los archivos, 
+                        # este archivo es la manera que tiene el gestor de contenedores de saber que ha terminado la ejecución del script.  
+                        
+    logger.info(f'NeMo {combined_models_subfolder_name} FIN\n')
+    print(f'NeMo {combined_models_subfolder_name} FIN\n')
+    save_status(FIN)   
+    exit(0)                         

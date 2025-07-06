@@ -106,9 +106,9 @@ if __name__ == '__main__':
                 for turn, _, speaker in diarization.itertracks(yield_label=True):                
                     logger.debug(f'start={turn.start:.1f}s stop={turn.end:.1f}s speaker_{speaker}')
                     print(f"start={turn.start:.1f}s stop={turn.end:.1f}s speaker_{speaker}")
-                logger.info(f'FIN de la diarización del audio {wav_file_path}.') # Imprime al archivo de logging el fin de la diarización de uno de los archivos   
-                print(f'FIN de la diarización del audio {wav_file_path}.')       # Imprime a stdout el fin de la diarización de uno de los archivos   
-                save_status(f'FIN de la diarizacion del audio {wav_file_path}.') # Imprime al archivo de estado el fin de la diarización de uno de los archivos, 
+                logger.info(f'FIN de la diarización por Pyannote del audio {wav_file_path}.') # Imprime al archivo de logging el fin de la diarización de uno de los archivos   
+                print(f'FIN de la diarización por Pyannote del audio {wav_file_path}.')       # Imprime a stdout el fin de la diarización de uno de los archivos   
+                save_status(f'FIN de la diarizacion por Pyannote del audio {wav_file_path}.') # Imprime al archivo de estado el fin de la diarización de uno de los archivos, 
                             # este archivo es la manera que tiene el gestor de contenedores de saber que ha terminado la ejecución del script.  
         logger.info(f'pyannote/{pipeline_model} FIN\n')
         print(f'pyannote/{pipeline_model} FIN\n')

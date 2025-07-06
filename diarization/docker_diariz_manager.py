@@ -50,7 +50,11 @@ class DockerDiarizationManager:
                 try:
                     binding = {}
                     binding[self.host_volume_path] = {"bind" : container_volume_path, "mode" : "rw"}            
-
+                    ## Si el container es de NeMo podría hacer falta un segundo binding ./subtitles/data:/data para los RTTM referenciados en el caso de usar Oracle-VAD
+                    if container_name == DockerImages.nemo_pipeline.name:       
+                        host_volume_rttm_ref_path = Path('./subtitles/data').absolute() 
+                        container_volume_rttm_ref_path = '/data'                        
+                        binding[host_volume_rttm_ref_path] = {"bind" : container_volume_rttm_ref_path, "mode" : "rw"}  
                     image = self._get_or_pull_image(self.client, self.image_name)                                    
                     self.containers[container_name] = self.run_container(image.tags[0], container_name, binding)    
                 except docker.errors.ImageNotFound as e:
@@ -112,24 +116,39 @@ class DockerDiarizationManager:
                                      volume_binding=None, delta=0.0):
         if volume_binding is None:
             binding = {}
-            self.host_volume_converter_path = Path('./subtitles/data').absolute() 
-            self.container_volume_converter_path =  '/data'                        
-            binding[self.host_volume_converter_path] = {"bind" : self.container_volume_converter_path, "mode" : "rw"}  
+            host_volume_converter_path = Path('./subtitles/data').absolute() 
+            container_volume_converter_path =  '/data'                        
+            binding[host_volume_converter_path] = {"bind" : container_volume_converter_path, "mode" : "rw"}  
         image = self._get_or_pull_image(self.client, image_name)                                    
         #self.containers[container_name] = self.run_container(image.tags[0], container_name, binding, command="-d="+str(delta), detach=False)            
         self.run_container(image.tags[0], container_name, binding, command="-d="+str(delta), detach=False)
    
-    def execute_command(self, container_name, param_vm, param_hft): 
+    def execute_command(self, container_name, json_data): 
         try:
             with open(os.path.join(self.host_volume_path, STATUS_FILE), 'w', encoding="utf-8") as status_file:
                 status_file.write('Inicializado el archivo de estado')
                 self.logger.info('Inicializado el archivo de estado')
-                status_file.close                        
-            exec_command = self.client.api.exec_create(self.containers[container_name].id, 
-                          ["python", container_name + ".py", "--pipeline_model", param_vm, "--huggingface_token", param_hft, "--volume_path", self.container_volume_path])
-
-            self.logger.info(f"Executing command: {exec_command} in container {self.containers[container_name].name} ...")
-            self.client.api.exec_start(exec_command['Id'], detach=True)
+                status_file.close                                      
+            if container_name == DockerImages.pyannote_pipeline.name:
+                exec_command = self.client.api.exec_create(self.containers[container_name].id, 
+                          ["python", container_name + ".py", "--pipeline_model", json_data['pipeline_model'], "--huggingface_token", json_data['huggingface_token'], 
+                           "--volume_path", self.container_volume_path])
+            elif container_name == DockerImages.nemo_pipeline.name:       
+                if not 'num_speakers' in json_data:
+                    exec_command = self.client.api.exec_create(self.containers[container_name].id, 
+                          ["python", container_name + ".py", "--vad_model", json_data['vad_model'], "--speaker_model", json_data['speaker_model'],
+                           "--reference_path", json_data['reference_path'], "--volume_path", self.container_volume_path])
+                else:  
+                    exec_command = self.client.api.exec_create(self.containers[container_name].id, 
+                          ["python", container_name + ".py", "--vad_model", json_data['vad_model'], "--speaker_model", json_data['speaker_model'],
+                           "--reference_path", json_data['reference_path'], "--num_speakers", json_data['num_speakers'], "--volume_path", self.container_volume_path])
+            else:
+                print(f"No se ha podido preparar un comando de ejecución al contenedor {container_name}")
+                self.logger.info(f"No se ha podido preparar un comando de ejecución al contenedor {container_name}")
+                exit(1)
+            self.client.api.exec_start(exec_command['Id'], detach=False)
+            print(f"Ejecutando comando: {exec_command} en contenedor {self.containers[container_name].name} ...")    
+            self.logger.info(f"Ejecutando comando: {exec_command} en contenedor {self.containers[container_name].name} ...")            
 
             self._check_status_file()         
             self.stop_if_running(self.containers[container_name].name)                        
@@ -139,11 +158,11 @@ class DockerDiarizationManager:
             self.logger.error(f"Container {self.containers[container_name].name} not found.")
             self.stop_if_running(self.containers[container_name].name) 
             sys.exit(1)
-        except Exception as e:
+        except Exception or TypeError as e:
             print(f"An error occurred while executing the command: {e}")
             self.logger.error(f"An error occurred while executing the command: {e}")
             self.stop_if_running(self.containers[container_name].name) 
-            sys.exit(1)         
+            sys.exit(1)  
             
             
     def _check_status_file(self):        
@@ -172,18 +191,18 @@ class DockerDiarizationManager:
             
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Docker Diarization Manager")
-    parser.add_argument('-hvp', '--host_volume_path', type=str, default='E:\Desarrollo\TFM\data\media', help='Path de la maquina host ( P. ej. mi Windows 10)')        
+    parser.add_argument('-hvp', '--host_volume_path', type=str, default='E:\\Desarrollo\\TFM\\data\\media', help='Path de la maquina host ( P. ej. mi Windows 10)')        
     parser.add_argument('-cvp', '--container_volume_path', type=str, default='/media', help='Path en el contenedor donde se guardan los archivos wav')
     parser.add_argument('-img', '--image_name', type=str, default='dasaenzd/pyannote_pipeline:latest', help='Nombre de la imagen docker')    
     parser.add_argument('-par', '--params', type=str,  help='Parámetros propios para el script ') 
     args = parser.parse_args()
                        
     dockerManager = DockerDiarizationManager(host_volume_path=args.host_volume_path, container_volume_path=args.container_volume_path, 
-                                             image_name=args.image_name) 
+                                             image_name_list=[args.image_name]) 
     if args.image_name is not None:   
-        container_name =  args.image_name.split('/')[1].split(':')[0]  ## TODO: Podría fallar si la imagen no empieza por dasaenzd? probarlo...                      
+        container_name =  args.image_name.split('/')[1].split(':')[0]                     
         json_data = json.loads(args.params) if args.params is not None else {}
-        if json_data:
-            dockerManager.execute_command(container_name, json_data['pipeline_model'], json_data['huggingface_token'])
+        if json_data:        
+            dockerManager.execute_command(container_name, json_data)
     logging.disable(logging.ERROR)        
     sys.exit(0)

@@ -8,9 +8,10 @@ from datetime import datetime
 
 def call_manager_to_execute_container(image_name, params):
     container_name =  image_name.split('/')[1].split(':')[0]  ## TODO: Podría fallar si la imagen no empieza por dasaenzd? probarlo...  
-    args.params = json.loads(args.params) if args.params is not None else {}
-    if args.params:
-        dockerManager.execute_command(container_name, args.params['pipeline_model'], args.params['huggingface_token'])                            
+    #params = json.loads(params) if params is not None else {}
+    if params:
+        #dockerManager.execute_command(container_name, args.params['pipeline_model'], args.params['huggingface_token'])                            
+        dockerManager.execute_command(container_name, params)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Docker Diarization Manager")
