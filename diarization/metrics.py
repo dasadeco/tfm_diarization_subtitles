@@ -8,7 +8,7 @@ import math
 import pandas as pd
 
 from openpyxl import load_workbook
-
+from openpyxl.styles import fills, PatternFill
 from pyannote.core import Annotation, Segment
 from pyannote.metrics.diarization import DiarizationErrorRate, DiarizationCompleteness, DiarizationCoverage, DiarizationPurity, DiarizationHomogeneity, \
     DiarizationPurityCoverageFMeasure, GreedyDiarizationErrorRate, JaccardErrorRate
@@ -21,7 +21,7 @@ RTTM_REF = "rttm_ref"
 COLLAR = 0.
 EXECUTION_TIME_FILE = "exec_time.txt"
 EXECUTION_NEMO_TIME_FILE = "NEMO_exec_time.txt"
-EXECUTION_PYANNOTE_TIME_FILE = "PYANNOTE_exec_time.txt"
+EXECUTION_PYANNOTE_TIME_FILE = "PYANNOTE_exec_time.txt"  
 
 class DatasetEnum(Enum):
     canaluned = "canal.uned"
@@ -40,7 +40,7 @@ class MetricsEnum(Enum):
     # Second Step
   SegPur = "Segmentation Purity"
   SegCover = "Segmentation Coverage"
-  SegFMeas = "Segmentation Purity/Coverage F-Measure"
+  SegFMeas = "Segmentation F-Measure"
   SegPrec = "Segmentation Precision"
   SegRec = "Segmentation Recall"
     # Third Step
@@ -59,28 +59,43 @@ class MetricsEnum(Enum):
     # Performance
   RTF = "Real Time Factor"  
   
-  
-  
+    
 class PipelineEnum(Enum):
-    PYANNOTE ='PYANNOTE'
-    NEMO ='NEMO'  
+    PYANNOTE ='PYannote'
+    NEMO ='NeMo'    
+    
+class PipelineVersions(Enum):
+    V2_1 ='speaker-diarization@2.1'
+    #V3_0 ='speaker-diarization-3.0'
+    V3_1 ='speaker-diarization-3.1'
+    _ = 'NA'
+    
+class VAD_Models(Enum):
+    ORACLE = 'oracle_vad'
+    MARBLE = 'vad_multilingual_marblenet'
+    _ = 'NA'
+    
+class Speaker_Models(Enum):
+    TITANET_LARGE = "titanet_large" 
+    ECAPA_TDNN = "ecapa_tdnn" 
+    SPEAKER_VERIF = "speakerverification_speakernet"    
+    TITANET_SMALL = "titanet_small"    
+    _ = 'NA'
 
 
 class MetricsByAudioFile():    
-    #Solo Pipelines de Pyannote de momento
-    def __init__(self, rttm_file:str, modelo:Enum, metrics_map:dict, dataset=DatasetEnum.canaluned):
+    def __init__(self, rttm_file:str, pipeline_model:PipelineVersions, vad_model:str, embedding_model:str, metrics_map:dict, dataset=DatasetEnum):
         self.rttm_file = rttm_file
-        self.modelo = modelo
-        self.metrics_map = metrics_map
-        
+        self.pipeline_model = pipeline_model
+        self.vad_model = vad_model
+        self.embedding_model = embedding_model
+        self.metrics_map = metrics_map        
         if type(dataset) == DatasetEnum:
             self.dataset = dataset.name         
         else:
             self.dataset = dataset
 
-logger = None
-total_metrics:list[MetricsByAudioFile] = []                   
-
+total_metrics:list[MetricsByAudioFile] = []
 
 def _buscar_by_extension_in_dataset_2_niveles(path, extension):
     resultados = []
@@ -93,22 +108,22 @@ def _buscar_by_extension_in_dataset_2_niveles(path, extension):
                     resultados.append((archivo, nombre_subcarpeta, carpeta))
     return resultados
   
-def executeMetrics(metrics:list, rttms_hyp_path, dataset_subfolder_path, model, rttm_file, rttms_ref_path, pipeline, collar=COLLAR):
+def executeMetrics(metrics:list, rttms_hyp_path, dataset_subfolder_path, model_subfolder, rttm_file, rttms_ref_path, pipeline, collar=COLLAR):
       
     def _create_annot(file:FileIO, annot:Annotation)->Annotation:              
       for line in file:
         if line.strip() != "":
-            data_list = line.split(" ")
+            data_list = line.split()
             annot[Segment( math.trunc(float(data_list[3])*100),     
                 math.trunc(float(data_list[3])*100) + math.trunc(float(data_list[4])*100))] = data_list[7]
       return annot
                                             
     dataset = os.path.basename(dataset_subfolder_path)
-    hyp_rttm_file_path = os.path.join(dataset_subfolder_path, model, rttm_file)
+    hyp_rttm_file_path = os.path.join(dataset_subfolder_path, model_subfolder, rttm_file)
     ref_rttm_file_path = os.path.join(rttms_ref_path, dataset, rttm_file)
     hypothesis, reference = None, None
     if os.path.exists(hyp_rttm_file_path):    
-        hypothesis = Annotation(rttm_file, model)
+        hypothesis = Annotation(rttm_file, model_subfolder)
         with open(hyp_rttm_file_path, 'r') as hyp_file:
             hypothesis = _create_annot(hyp_file, hypothesis)
         hyp_file.close()    
@@ -118,9 +133,9 @@ def executeMetrics(metrics:list, rttms_hyp_path, dataset_subfolder_path, model, 
         with open(ref_rttm_file_path, 'r') as ref_file:
             reference = _create_annot(ref_file, reference)
         ref_file.close()    
-     
+    if collar is None:
+        collar = 0.0 
     metrics_map = {}
-
                                       
     for metric in metrics:
         metric = metric.strip()        
@@ -146,17 +161,20 @@ def executeMetrics(metrics:list, rttms_hyp_path, dataset_subfolder_path, model, 
             case MetricsEnum.IdentPrec.name : metrics_map[ MetricsEnum.IdentPrec.value] = IdentificationPrecision(collar)(reference, hypothesis) if hypothesis is not None and reference is not None else 'NA'
             case MetricsEnum.IdentRec.name : metrics_map[ MetricsEnum.IdentRec.value] = IdentificationRecall(collar)(reference, hypothesis) if hypothesis is not None and reference is not None else 'NA'
             #La métrica de rendimiento lleva un proceso totalmente distinto
-            case MetricsEnum.RTF.name : metrics_map[MetricsEnum.RTF.value] = calcula_ratio(rttms_hyp_path, dataset_subfolder_path, model, rttm_file, pipeline) if hypothesis is not None else 'NA'
-    mbaf = MetricsByAudioFile(rttm_file, model, metrics_map, dataset)
+            case MetricsEnum.RTF.name : metrics_map[MetricsEnum.RTF.value] = calcula_ratio(rttms_hyp_path, dataset_subfolder_path, model_subfolder, rttm_file, pipeline) if hypothesis is not None else 'NA'
+    mbaf = MetricsByAudioFile(rttm_file, model_subfolder, VAD_Models._.value, Speaker_Models._.value, metrics_map, dataset) if pipeline == PipelineEnum.PYANNOTE.name \
+        else MetricsByAudioFile(rttm_file, PipelineVersions._.value, model_subfolder.split('+')[0], model_subfolder.split('+')[1], metrics_map, dataset)
     total_metrics.append(mbaf)
 
 def write_metrics(hypotheses_path):    
     index = [ i for i, _ in enumerate(total_metrics)]
-    columns = ["Audios", "Datasets", "Modelos"] 
-    rttm_files = [ mbaf.rttm_file for mbaf in total_metrics]
-    modelos = [ mbaf.modelo for mbaf in total_metrics]        
+    columns = ["Audios", "Datasets", "Pyannote Pipeline Model", "NeMo VAD Model", "NeMo Embeddings Model"]
+    rttm_files = [ mbaf.rttm_file for mbaf in total_metrics]    
     datasets = [ mbaf.dataset for mbaf in total_metrics]        
-    data = {"Audios": rttm_files, "Datasets": datasets, "Modelos": modelos}
+    pipeline_models = [ mbaf.pipeline_model for mbaf in total_metrics]
+    vad_models = [ mbaf.vad_model for mbaf in total_metrics]
+    embeddings_models = [ mbaf.embedding_model for mbaf in total_metrics]
+    data = {"Audios": rttm_files, "Datasets": datasets, "Pyannote Pipeline Model": pipeline_models, "NeMo VAD Model": vad_models, "NeMo Embeddings Model": embeddings_models}
     list_metrics = [mbaf.metrics_map for mbaf in total_metrics]
     for metrics in list_metrics:
         for metric in metrics.keys():
@@ -172,11 +190,20 @@ def write_metrics(hypotheses_path):
     metrics_df.to_excel(export_path,  index=False)
     wb = load_workbook(export_path)
     ws = wb["Sheet1"]   
-    ws.column_dimensions['A'].width = 70
+    ws.column_dimensions['A'].width = 55
     ws.column_dimensions['B'].width = 15
     ws.column_dimensions['C'].width = 25
-    for letter in string.ascii_uppercase[3:]:
-        ws.column_dimensions[letter].width = 35
+    ws.column_dimensions['D'].width = 20
+    ws.column_dimensions['E'].width = 25
+    for letter in string.ascii_uppercase[5:]:
+        ws.column_dimensions[letter].width = 27
+        
+    odd_fill = PatternFill(fills.FILL_PATTERN_LIGHTUP)               
+    for number in range(2, len(index)+2):        
+        if ws.cell(row=number, column=3).value == 'NA':
+            for y in range(1, ws.max_column):
+                ws.cell(row=number, column=y).fill = odd_fill
+        
     wb.save(export_path)
     
 ## Buscamos el archivo en el que está guardado el tiempo de ejecución del archivo de ese dataset usando ese modelo    
@@ -192,8 +219,9 @@ def calcula_ratio(base_rttms_hyp_path, dataset_subfolder_path, model, rttm_file,
                 duration = word[4]        
                 break
     if rttm_file == word[0] and model == word[1] and dataset == word[2]:
-        rtf = float(exec_time)/float(duration)        
-        print(f"Ratio de procesamiento del audio {rttm_file.replace('.rttm', '')}: {str(rtf)}")                
+        rtf = float(exec_time)/float(duration)  # Real-Time Factor
+        logger.info(f"Ratio de procesamiento del audio {rttm_file.replace('.rttm', '')}: {str(rtf)}")
+        print(f"Ratio de procesamiento del audio {rttm_file.replace('.rttm', '')}: {str(rtf)}")          
     return rtf
             
 
@@ -220,14 +248,17 @@ if __name__ == '__main__':
         args.metrics_list = args.metrics_list[:-1]    
                 
     if os.path.exists(args.hyphoteses_path) and os.path.exists(args.reference_path):
-        tuplas_hyp = _buscar_by_extension_in_dataset_2_niveles(args.hyphoteses_path, ".rttm")                                                  
-                       
+        tuplas_hyp = _buscar_by_extension_in_dataset_2_niveles(args.hyphoteses_path, ".rttm")                                                                         
         for tupla_hyp in tuplas_hyp:
             rttm_hyp_file = tupla_hyp[0]               
             model_subfolder = tupla_hyp[1]           
             dataset_subfolder_path = os.path.join(args.hyphoteses_path, tupla_hyp[2])
             pipeline = PipelineEnum.PYANNOTE.name if 'speaker-diarization' in model_subfolder else PipelineEnum.NEMO.name
             executeMetrics(args.metrics_list.split(','), args.hyphoteses_path, dataset_subfolder_path, model_subfolder, \
-                rttm_hyp_file, args.reference_path, pipeline)
+                rttm_hyp_file, args.reference_path, pipeline, args.collar)
 
-        write_metrics( args.hyphoteses_path )        
+        write_metrics( args.hyphoteses_path )
+    else:
+        logger.info("No existe la carpeta de archivos RTTM de hipótesis o la carpeta de archivos de referencia. NO se pueden calcular las métricas.")
+        print("No existe la carpeta de archivos RTTM de hipótesis o la carpeta de archivos de referencia. NO se pueden calcular las métricas.")
+            
