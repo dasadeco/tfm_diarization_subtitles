@@ -53,9 +53,9 @@ class MetricsEnum(Enum):
   GreedyDER = "Greedy Diarization Error Rate"
   JER = "Jaccard Error Rate"
     # Fourth Step
-  IER = "Identification Error Rate"
-  IdentPrec = "Identification Precision" 
-  IdentRec = "Identification Recall"
+  #IER = "Identification Error Rate"
+  #IdentPrec = "Identification Precision" 
+  #IdentRec = "Identification Recall"
     # Performance
   RTF = "Real Time Factor"  
   
@@ -108,7 +108,7 @@ def _buscar_by_extension_in_dataset_2_niveles(path, extension):
                     resultados.append((archivo, nombre_subcarpeta, carpeta))
     return resultados
   
-def executeMetrics(metrics:list, rttms_hyp_path, dataset_subfolder_path, model_subfolder, rttm_file, rttms_ref_path, pipeline, collar=COLLAR):
+def executeMetrics(metrics:list, rttms_hyp_path, dataset_subfolder_path, model_subfolder, rttm_file, rttms_ref_path, pipeline, collar=COLLAR, skip_overlap=False):
       
     def _create_annot(file:FileIO, annot:Annotation)->Annotation:              
       for line in file:
@@ -140,26 +140,27 @@ def executeMetrics(metrics:list, rttms_hyp_path, dataset_subfolder_path, model_s
     for metric in metrics:
         metric = metric.strip()        
         match metric:
-            case MetricsEnum.DetAcc.name : metrics_map[ MetricsEnum.DetAcc.value] = DetectionAccuracy(collar)(reference, hypothesis) if hypothesis is not None and reference is not None else 'NA'
-            case MetricsEnum.DetCost.name : metrics_map[ MetricsEnum.DetCost.value] = DetectionCostFunction(collar)(reference, hypothesis) if hypothesis is not None and reference is not None else 'NA'
-            case MetricsEnum.DetER.name : metrics_map[ MetricsEnum.DetER.value] = DetectionErrorRate(collar)(reference, hypothesis) if hypothesis is not None and reference is not None else 'NA'
-            case MetricsEnum.DetPrec.name : metrics_map[ MetricsEnum.DetPrec.value] = DetectionPrecision(collar)(reference, hypothesis) if hypothesis is not None and reference is not None else 'NA'
-            case MetricsEnum.DetRec.name : metrics_map[ MetricsEnum.DetRec.value] = DetectionRecall(collar)(reference, hypothesis) if hypothesis is not None and reference is not None else 'NA'
-            case MetricsEnum.DetFMeas.name : metrics_map[ MetricsEnum.DetFMeas.value] = DetectionPrecisionRecallFMeasure(collar)(reference, hypothesis) if hypothesis is not None and reference is not None else 'NA'
+            case MetricsEnum.DetAcc.name : metrics_map[ MetricsEnum.DetAcc.value] = DetectionAccuracy(collar, skip_overlap)(reference, hypothesis) if hypothesis is not None and reference is not None else 'NA'
+            case MetricsEnum.DetCost.name : metrics_map[ MetricsEnum.DetCost.value] = DetectionCostFunction(collar, skip_overlap)(reference, hypothesis) if hypothesis is not None and reference is not None else 'NA'
+            case MetricsEnum.DetER.name : metrics_map[ MetricsEnum.DetER.value] = DetectionErrorRate(collar, skip_overlap)(reference, hypothesis) if hypothesis is not None and reference is not None else 'NA'
+            case MetricsEnum.DetPrec.name : metrics_map[ MetricsEnum.DetPrec.value] = DetectionPrecision(collar, skip_overlap)(reference, hypothesis) if hypothesis is not None and reference is not None else 'NA'
+            case MetricsEnum.DetRec.name : metrics_map[ MetricsEnum.DetRec.value] = DetectionRecall(collar, skip_overlap)(reference, hypothesis) if hypothesis is not None and reference is not None else 'NA'
+            case MetricsEnum.DetFMeas.name : metrics_map[ MetricsEnum.DetFMeas.value] = DetectionPrecisionRecallFMeasure(collar, skip_overlap)(reference, hypothesis) if hypothesis is not None and reference is not None else 'NA'
             case MetricsEnum.SegPur.name : metrics_map[ MetricsEnum.SegPur.value] = SegmentationPurity(collar)(reference, hypothesis) if hypothesis is not None and reference is not None else 'NA'
             case MetricsEnum.SegCover.name : metrics_map[ MetricsEnum.SegCover.value] = SegmentationCoverage(collar)(reference, hypothesis) if hypothesis is not None and reference is not None else 'NA'
             case MetricsEnum.SegFMeas.name : metrics_map[ MetricsEnum.SegFMeas.value] = SegmentationPurityCoverageFMeasure(collar)(reference, hypothesis) if hypothesis is not None and reference is not None else 'NA'
-            case MetricsEnum.DER.name : metrics_map[ MetricsEnum.DER.value] = DiarizationErrorRate(collar)(reference, hypothesis) if hypothesis is not None and reference is not None else 'NA'
-            case MetricsEnum.DiariCompl.name : metrics_map[ MetricsEnum.DiariCompl.value] = DiarizationCompleteness(collar)(reference, hypothesis) if hypothesis is not None and reference is not None else 'NA'
+            case MetricsEnum.DER.name : metrics_map[ MetricsEnum.DER.value] = DiarizationErrorRate(collar, skip_overlap)(reference, hypothesis) if hypothesis is not None and reference is not None else 'NA'
+            case MetricsEnum.DiariCompl.name : metrics_map[ MetricsEnum.DiariCompl.value] = DiarizationCompleteness(collar, skip_overlap)(reference, hypothesis) if hypothesis is not None and reference is not None else 'NA'
+            case MetricsEnum.DiariPur.name : metrics_map[ MetricsEnum.DiariPur.value] = DiarizationPurity(collar)(reference, hypothesis) if hypothesis is not None and reference is not None else 'NA'            
             case MetricsEnum.DiariCover.name : metrics_map[ MetricsEnum.DiariCover.value] = DiarizationCoverage(collar)(reference, hypothesis) if hypothesis is not None and reference is not None else 'NA'
-            case MetricsEnum.DiariHomog.name : metrics_map[ MetricsEnum.DiariHomog.value] = DiarizationHomogeneity(collar)(reference, hypothesis) if hypothesis is not None and reference is not None else 'NA'
-            case MetricsEnum.DiariPur.name : metrics_map[ MetricsEnum.DiariPur.value] = DiarizationPurity(collar)(reference, hypothesis) if hypothesis is not None and reference is not None else 'NA'
-            case MetricsEnum.DiariFMeas.name : metrics_map[ MetricsEnum.DiariFMeas.value] = DiarizationPurityCoverageFMeasure(collar)(reference, hypothesis) if hypothesis is not None and reference is not None else 'NA'
-            case MetricsEnum.GreedyDER.name : metrics_map[ MetricsEnum.GreedyDER.value] = GreedyDiarizationErrorRate(collar)(reference, hypothesis) if hypothesis is not None and reference is not None else 'NA'
-            case MetricsEnum.JER.name : metrics_map[ MetricsEnum.JER.value] = JaccardErrorRate(collar)(reference, hypothesis) if hypothesis is not None and reference is not None else 'NA'
-            case MetricsEnum.IER.name : metrics_map[ MetricsEnum.IER.value] = IdentificationErrorRate(collar)(reference, hypothesis) if hypothesis is not None and reference is not None else 'NA'
-            case MetricsEnum.IdentPrec.name : metrics_map[ MetricsEnum.IdentPrec.value] = IdentificationPrecision(collar)(reference, hypothesis) if hypothesis is not None and reference is not None else 'NA'
-            case MetricsEnum.IdentRec.name : metrics_map[ MetricsEnum.IdentRec.value] = IdentificationRecall(collar)(reference, hypothesis) if hypothesis is not None and reference is not None else 'NA'
+            case MetricsEnum.DiariFMeas.name : metrics_map[ MetricsEnum.DiariFMeas.value] = DiarizationPurityCoverageFMeasure(collar)(reference, hypothesis) if hypothesis is not None and reference is not None else 'NA'            
+            case MetricsEnum.DiariHomog.name : metrics_map[ MetricsEnum.DiariHomog.value] = DiarizationHomogeneity(collar, skip_overlap)(reference, hypothesis) if hypothesis is not None and reference is not None else 'NA'                        
+            case MetricsEnum.GreedyDER.name : metrics_map[ MetricsEnum.GreedyDER.value] = GreedyDiarizationErrorRate(collar, skip_overlap)(reference, hypothesis) if hypothesis is not None and reference is not None else 'NA'
+            case MetricsEnum.JER.name : metrics_map[ MetricsEnum.JER.value] = JaccardErrorRate(collar, skip_overlap)(reference, hypothesis) if hypothesis is not None and reference is not None else 'NA'
+            #case MetricsEnum.IER.name : metrics_map[ MetricsEnum.IER.value] = IdentificationErrorRate(collar)(reference, hypothesis) if hypothesis is not None and reference is not None else 'NA'
+            #case MetricsEnum.IdentPrec.name : metrics_map[ MetricsEnum.IdentPrec.value] = IdentificationPrecision(collar)(reference, hypothesis) if hypothesis is not None and reference is not None else 'NA'
+            #case MetricsEnum.IdentRec.name : metrics_map[ MetricsEnum.IdentRec.value] = IdentificationRecall(collar)(reference, hypothesis) if hypothesis is not None and reference is not None else 'NA'
+            
             #La métrica de rendimiento lleva un proceso totalmente distinto
             case MetricsEnum.RTF.name : metrics_map[MetricsEnum.RTF.value] = calcula_ratio(rttms_hyp_path, dataset_subfolder_path, model_subfolder, rttm_file, pipeline) if hypothesis is not None else 'NA'
     mbaf = MetricsByAudioFile(rttm_file, model_subfolder, VAD_Models._.value, Speaker_Models._.value, metrics_map, dataset) if pipeline == PipelineEnum.PYANNOTE.name \
@@ -201,7 +202,7 @@ def write_metrics(hypotheses_path):
     odd_fill = PatternFill(fills.FILL_PATTERN_LIGHTUP)               
     for number in range(2, len(index)+2):        
         if ws.cell(row=number, column=3).value == 'NA':
-            for y in range(1, ws.max_column):
+            for y in range(1, ws.max_column+1):
                 ws.cell(row=number, column=y).fill = odd_fill
         
     wb.save(export_path)
@@ -229,8 +230,9 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Pyannote Metrics')
     parser.add_argument('-hp', '--hyphoteses_path', type=str, default='E:\Desarrollo\TFM\data\media\rttm', help='Path of the folder with hypotheses rttm files') 
     parser.add_argument('-rp', '--reference_path', type=str, default='E:\Desarrollo\TFM\subtitles\data\rttm_ref', help='Path of the folder with reference rttm files')     
-    parser.add_argument('-me', '--metrics_list', type=str, help='List of Metrics to apply')
-    parser.add_argument('-co', '--collar', type=float, help='Collar (Forgiving Threshold at the beginning and end of Segments)')
+    parser.add_argument('-me', '--metrics_list', type=str, help='Lista de Metricas a aplicar')
+    parser.add_argument('-co', '--collar', type=float, help='Collar (Umbral de holgura al principio  al final de cada segmento)')
+    parser.add_argument('-so', '--skip_overlap', type=bool, default=False, help='Si se ignora el habla solapada')
     args = parser.parse_args()
             
     files = []
@@ -255,7 +257,7 @@ if __name__ == '__main__':
             dataset_subfolder_path = os.path.join(args.hyphoteses_path, tupla_hyp[2])
             pipeline = PipelineEnum.PYANNOTE.name if 'speaker-diarization' in model_subfolder else PipelineEnum.NEMO.name
             executeMetrics(args.metrics_list.split(','), args.hyphoteses_path, dataset_subfolder_path, model_subfolder, \
-                rttm_hyp_file, args.reference_path, pipeline, args.collar)
+                rttm_hyp_file, args.reference_path, pipeline, args.collar, args.skip_overlap)
 
         write_metrics( args.hyphoteses_path )
     else:

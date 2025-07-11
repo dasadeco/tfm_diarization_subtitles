@@ -37,8 +37,10 @@ class ConverterToAudio:
             if not os.path.exists(audio_media_path):
                 os.mkdir(audio_media_path)
                 self.logger.warning(f"Creamos un path de audio de entrada: {self.audio_media_path} puesto que no se ha suministrado ninguno.")
+                print(f"Creamos un path de audio de entrada: {self.audio_media_path} puesto que no se ha suministrado ninguno.")
             self.audio_media_path = audio_media_path          
             self.logger.warning(f"El path de audio de entrada será: {self.audio_media_path}.")  
+            print(f"El path de audio de entrada será: {self.audio_media_path}.")  
 
         if self.video_media_path is not None:
             # Existe un path de entrada de video ??            
@@ -169,7 +171,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Convert MP4 video to WAV audio and other audio formats to WAV")
     parser.add_argument('-vmp', '--video_media_path', type=str, help='Path of the folder with the video(.mp4) files')
     parser.add_argument('-amp', '--audio_media_path', type=str, help='Path of the folder with the audio(.wav) files')
+    parser.add_argument('-omp', '--4.1	ESTRUCTURA DE CARPETAS', type=str, help='Path of the folder with Mono 16Kbps. audio(.wav) files')
 
     args = parser.parse_args()
-    converter = ConverterToAudio(args.video_media_path, args.audio_media_path)
+    converter = ConverterToAudio(args.video_media_path, args.audio_media_path,  args.output_media_path)
     converter.convert()
