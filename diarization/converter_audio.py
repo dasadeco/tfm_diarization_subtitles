@@ -169,9 +169,9 @@ class ConverterToAudio:
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Convert MP4 video to WAV audio and other audio formats to WAV")
-    parser.add_argument('-vmp', '--video_media_path', type=str, help='Path of the folder with the video(.mp4) files')
-    parser.add_argument('-amp', '--audio_media_path', type=str, help='Path of the folder with the audio(.wav) files')
-    parser.add_argument('-omp', '--4.1	ESTRUCTURA DE CARPETAS', type=str, help='Path of the folder with Mono 16Kbps. audio(.wav) files')
+    parser.add_argument('-vmp', '--video_media_path', type=str, help='Carpeta de entrada con los archivos de video(.mp4)')
+    parser.add_argument('-amp', '--audio_media_path', type=str, help='Carpeta de entrada con los archivos de audio(.wav, .mp3, .m4u)')
+    parser.add_argument('-omp', '--output_media_path', type=str, help='Carpeta de salida con los archivos de audio(.wav) convertidos a Mono y muestreados 16Kbps.')
 
     args = parser.parse_args()
     converter = ConverterToAudio(args.video_media_path, args.audio_media_path,  args.output_media_path)

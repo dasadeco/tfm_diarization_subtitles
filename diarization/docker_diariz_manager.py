@@ -4,7 +4,6 @@ import docker
 import os
 from pathlib import Path
 import logging
-import json
 import time
 from datetime import datetime
 from enum import Enum
@@ -122,8 +121,9 @@ class DockerDiarizationManager:
         image = self._get_or_pull_image(self.client, image_name)                                    
         #self.containers[container_name] = self.run_container(image.tags[0], container_name, binding, command="-d="+str(delta), detach=False)            
         self.run_container(image.tags[0], container_name, binding, command="-d="+str(delta), detach=False)
-   
-    def execute_command(self, container_name, json_data): 
+
+    # Este método puede ejecutar más de un contenedor distinto con sus parámetros correspondientes   
+    def execute_command(self, container_name, params:dict): 
         try:
             with open(os.path.join(self.host_volume_path, STATUS_FILE), 'w', encoding="utf-8") as status_file:
                 status_file.write('Inicializado el archivo de estado')
@@ -131,17 +131,17 @@ class DockerDiarizationManager:
                 status_file.close                                      
             if container_name == DockerImages.pyannote_pipeline.name:
                 exec_command = self.client.api.exec_create(self.containers[container_name].id, 
-                          ["python", container_name + ".py", "--pipeline_model", json_data['pipeline_model'], "--huggingface_token", json_data['huggingface_token'], 
+                          ["python", container_name + ".py", "--pipeline_model", params['pipeline_model'], "--huggingface_token", params['huggingface_token'], 
                            "--volume_path", self.container_volume_path])
             elif container_name == DockerImages.nemo_pipeline.name:       
-                if not 'num_speakers' in json_data:
+                if not 'num_speakers' in params:
                     exec_command = self.client.api.exec_create(self.containers[container_name].id, 
-                          ["python", container_name + ".py", "--vad_model", json_data['vad_model'], "--speaker_model", json_data['speaker_model'],
-                           "--reference_path", json_data['reference_path'], "--volume_path", self.container_volume_path])
+                          ["python", container_name + ".py", "--vad_model", params['vad_model'], "--speaker_model", params['speaker_model'],
+                           "--reference_path", params['reference_path'], "--volume_path", self.container_volume_path])
                 else:  
                     exec_command = self.client.api.exec_create(self.containers[container_name].id, 
-                          ["python", container_name + ".py", "--vad_model", json_data['vad_model'], "--speaker_model", json_data['speaker_model'],
-                           "--reference_path", json_data['reference_path'], "--num_speakers", json_data['num_speakers'], "--volume_path", self.container_volume_path])
+                          ["python", container_name + ".py", "--vad_model", params['vad_model'], "--speaker_model", params['speaker_model'],
+                           "--reference_path", params['reference_path'], "--num_speakers", params['num_speakers'], "--volume_path", self.container_volume_path])
             else:
                 print(f"No se ha podido preparar un comando de ejecución al contenedor {container_name}")
                 self.logger.info(f"No se ha podido preparar un comando de ejecución al contenedor {container_name}")
@@ -193,16 +193,36 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Docker Diarization Manager")
     parser.add_argument('-hvp', '--host_volume_path', type=str, default='E:\\Desarrollo\\TFM\\data\\media', help='Path de la maquina host ( P. ej. mi Windows 10)')        
     parser.add_argument('-cvp', '--container_volume_path', type=str, default='/media', help='Path en el contenedor donde se guardan los archivos wav')
-    parser.add_argument('-img', '--image_name', type=str, default='dasaenzd/pyannote_pipeline:latest', help='Nombre de la imagen docker')    
-    parser.add_argument('-par', '--params', type=str,  help='Parámetros propios para el script ') 
+    parser.add_argument('-img', '--image_name', type=str, default='dasaenzd/pyannote_pipeline:latest', help='Nombre de la imagen docker')        
+    #parser.add_argument('-par', '--params', type=str,  help='Parámetros propios para el script ') 
+    parser.add_argument('-pm', '--pipeline_model', type=str, help='Versión de la Pipeline Pyannote')
+    parser.add_argument('-hft', '--huggingface_token', type=str, help='Token de Huggingface')
+    parser.add_argument('-vad', '--vad_model', type=str, help='Indicamos el nombre del modelo VAD a utilizar')
+    parser.add_argument('-sm', '--speaker_model', type=str, help='Indicamos el nombre del modelo para obtener embeddings a utilizar')
+    parser.add_argument('-rp', '--reference_path', type=str, help='Ruta de la carpeta con archivos rttm de referencia si disponemos de ellos y se selecciona `oracle_vad`')
+    parser.add_argument('-ns', '--num_speakers', default=None,  type=int, help='Indicamos el numero de speakers (pero tendría que ser el mismo número en todos los archivos)')
     args = parser.parse_args()
-                       
+
     dockerManager = DockerDiarizationManager(host_volume_path=args.host_volume_path, container_volume_path=args.container_volume_path, 
                                              image_name_list=[args.image_name]) 
     if args.image_name is not None:   
         container_name =  args.image_name.split('/')[1].split(':')[0]                     
-        json_data = json.loads(args.params) if args.params is not None else {}
-        if json_data:        
-            dockerManager.execute_command(container_name, json_data)
+        params = {}
+        if args.pipeline_model is not None:
+            params['pipeline_model'] = args.pipeline_model
+        if args.huggingface_token is not None:
+            params['huggingface_token'] = args.huggingface_token
+        if args.vad_model is not None:
+            params['vad_model'] = args.vad_model
+        if args.speaker_model is not None:
+            params['speaker_model'] = args.speaker_model
+        if args.reference_path is not None:
+            params['reference_path'] = args.reference_path
+        if args.num_speakers is not None:
+            if type(args.num_speakers) != int:
+                print("Número de speakers debe ser un entero!")
+            else:    
+                params['num_speakers'] = str(args.num_speakers)
+        dockerManager.execute_command(container_name, params)
     logging.disable(logging.ERROR)        
     sys.exit(0)
