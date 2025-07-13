@@ -87,7 +87,8 @@ if __name__ == '__main__':
             print("No hay carpeta de archivos RTTM de referencia con VAD_MODEL seleccionado!")
             logger.warning(f"No hay carpeta de archivos RTTM de referencia con VAD_MODEL seleccionado!")
             vad_model= VAD_Models.MARBLE.value            
-        
+     
+    provide_num_speakers = False
     if args.num_speakers is not None:
         if type(args.num_speakers) != int:
             print("Número de speakers debe ser un entero!")
@@ -95,6 +96,7 @@ if __name__ == '__main__':
             args.num_speakers = None    
         else:    
             args.num_speakers = str(args.num_speakers)
+            provide_num_speakers = True
 
     print(f'START iniciando el pipeline de NeMo')    
     logger.info(f'START iniciando el pipeline de NeMo')        
@@ -110,6 +112,7 @@ if __name__ == '__main__':
     if os.path.exists(os.path.join(args.volume_path, "rttm", EXECUTION_TIME_FILE)):
         os.remove(os.path.join(args.volume_path, "rttm", EXECUTION_TIME_FILE))
     for tupla in tuplas:
+        rttm_ref_not_found = False
         wav_audio_file = tupla[0]   
         print(f"Archivo a procesar: {wav_audio_file}")
         logger.info(f"Archivo a procesar: {wav_audio_file}")
@@ -134,11 +137,14 @@ if __name__ == '__main__':
                         + "VAD Marble Net")                    
                     logger.warning(f"Con Oracle-VAD no se encuentran el archivo con los RTTM de referencia para el archivo "\
                                    + f"{wav_audio_file} , se seleccionará VAD Marble Net")
-                    vad_model = VAD_Models.MARBLE.value
+                    rttm_ref_not_found = True
                     rttm_ref_filepath = None
             else:
                 rttm_ref_filepath = None
-            combined_models_subfolder_name=str(vad_model + '+' + args.speaker_model)
+            if rttm_ref_not_found:    
+                combined_models_subfolder_name=str(VAD_Models.MARBLE.value + '+' + args.speaker_model)
+            else:    
+                combined_models_subfolder_name=str(vad_model + '+' + args.speaker_model)
             print(f'La carpeta de salida del rttm de hipótesis será {combined_models_subfolder_name} para el audio {wav_audio_file}')
             logger.info(f'La carpeta de salida del rttm de hipótesis será {combined_models_subfolder_name} para el audio {wav_audio_file}')
             rttm_hyp_model_path = os.path.join(args.volume_path, "rttm", dataset_subfolder, combined_models_subfolder_name)
@@ -180,21 +186,26 @@ if __name__ == '__main__':
             config.diarizer.speaker_embeddings.parameters.window_length_in_sec = [1.0] 
             config.diarizer.speaker_embeddings.parameters.shift_length_in_sec = [0.5] 
             config.diarizer.speaker_embeddings.parameters.multiscale_weights= [1]             
-            config.diarizer.clustering.parameters.oracle_num_speakers = False
-            if vad_model==VAD_Models.ORACLE.value:
-                config.diarizer.oracle_vad = True #True ----> ORACLE VAD 
-            else:
-                config.diarizer.oracle_vad = False # False --> MARBLENET VAD
+            config.diarizer.clustering.parameters.oracle_num_speakers = provide_num_speakers
+                        
+            config.diarizer.oracle_vad = vad_model==VAD_Models.ORACLE.value and not rttm_ref_not_found #----> ORACLE VAD o MARBLENET VAD
+            if vad_model!=VAD_Models.ORACLE.value:
                 config.diarizer.vad.model_path = vad_model
+            if vad_model==VAD_Models.ORACLE.value and rttm_ref_not_found:
+                config.diarizer.vad.model_path = VAD_Models.MARBLE.value # --> MARBLENET VAD asignado si no es posible ORACLE VAD
                 ## Posibles parámetros de configuración extra de un VAD que no sea Oracle.
                 #config.diarizer.vad.parameters.onset = 0.8
                 #config.diarizer.vad.parameters.offset = 0.6
                 #config.diarizer.vad.parameters.pad_offset = -0.05
+                #min_duration_on: 0.5 # Threshold for short speech segment deletion
+                #min_duration_off: 0.5 # Threshold for small non_speech deletion                
 
             start_time = time.time()
             ##### INICIO DE LA DIARIZACION ###########
             oracle_vad_clusdiar_model = ClusteringDiarizer(cfg=config)
+            
             oracle_vad_clusdiar_model.diarize()            
+                
             ##### FIN DE LA DIARIZACION ###########
             diarization_time = time.time() - start_time            
             print(f'Tiempo de diarización realizada con NeMo de {wav_file_path} : {diarization_time} segundos')            
