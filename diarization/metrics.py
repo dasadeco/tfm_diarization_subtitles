@@ -111,8 +111,8 @@ def _buscar_by_extension_in_dataset_2_niveles(path, extension):
 
 class MetricsCalculator():
     
-    def __init__(self, hyphoteses_path, reference_path, metrics_list, collar, skip_overlap):
-        self.hyphoteses_path = hyphoteses_path
+    def __init__(self, hypotheses_path, reference_path, metrics_list, collar, skip_overlap):
+        self.hypotheses_path = hypotheses_path
         self.reference_path = reference_path
         self.metrics_list = metrics_list
         self.collar = collar
@@ -120,13 +120,13 @@ class MetricsCalculator():
         
         
     def start_calc_metrics(self):
-        tuplas_hyp = _buscar_by_extension_in_dataset_2_niveles(self.hyphoteses_path, ".rttm")                                                                         
+        tuplas_hyp = _buscar_by_extension_in_dataset_2_niveles(self.hypotheses_path, ".rttm")                                                                         
         for tupla_hyp in tuplas_hyp:
             rttm_hyp_file = tupla_hyp[0]               
             model_subfolder = tupla_hyp[1]           
-            dataset_subfolder_path = os.path.join(self.hyphoteses_path, tupla_hyp[2])
+            dataset_subfolder_path = os.path.join(self.hypotheses_path, tupla_hyp[2])
             pipeline = PipelineEnum.PYANNOTE.name if 'speaker-diarization' in model_subfolder else PipelineEnum.NEMO.name
-            self.executeMetrics(self.metrics_list.split(','), self.hyphoteses_path, dataset_subfolder_path, model_subfolder, \
+            self.executeMetrics(self.metrics_list.split(','), self.hypotheses_path, dataset_subfolder_path, model_subfolder, \
                 rttm_hyp_file, self.reference_path, pipeline, self.collar, self.skip_overlap)
 
         self.write_metrics()
@@ -254,7 +254,7 @@ class MetricsCalculator():
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Pyannote Metrics')
-    parser.add_argument('-hp', '--hyphoteses_path', type=str, default='E:\Desarrollo\TFM\data\media\rttm', help='Carpeta con los archivos RTTM de hipotesis.')
+    parser.add_argument('-hp', '--hypotheses_path', type=str, default='E:\Desarrollo\TFM\data\media\rttm', help='Carpeta con los archivos RTTM de hipotesis.')
     parser.add_argument('-rp', '--reference_path', type=str, default='E:\Desarrollo\TFM\subtitles\data\rttm_ref', help='Carpeta con los archivos RTTM de referencia.')
     parser.add_argument('-me', '--metrics_list', type=str, help='Lista de Metricas a aplicar')
     parser.add_argument('-co', '--collar', type=float, help='Collar (Umbral de holgura al principio  al final de cada segmento)')
@@ -262,7 +262,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
             
     files = []
-    logs_path = os.path.join(args.hyphoteses_path, os.path.pardir, "logs")
+    logs_path = os.path.join(args.hypotheses_path, os.path.pardir, "logs")
     logger = logging.getLogger(__name__)
     logging.basicConfig(filename=f'{logs_path}/metrics.log',
                         encoding='utf-8', level=logging.DEBUG, format='%(asctime)s %(message)s', datefmt='%Y-%m-%d %H:%M:%S')            
@@ -275,8 +275,8 @@ if __name__ == '__main__':
             args.metrics_list += me.name + ','
         args.metrics_list = args.metrics_list[:-1]        
                 
-    if os.path.exists(args.hyphoteses_path) and os.path.exists(args.reference_path):
-        metrics_calc = MetricsCalculator(hyphoteses_path=args.hyphoteses_path, reference_path=args.reference_path, metrics_list=args.metrics_list, 
+    if os.path.exists(args.hypotheses_path) and os.path.exists(args.reference_path):
+        metrics_calc = MetricsCalculator(hypotheses_path=args.hypotheses_path, reference_path=args.reference_path, metrics_list=args.metrics_list, 
                         collar=args.collar, skip_overlap=args.skip_overlap)
         metrics_calc.start_calc_metrics()
     else:
