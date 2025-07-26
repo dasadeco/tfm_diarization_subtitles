@@ -1,6 +1,8 @@
-pyannote.audio==2.1
+pyannote.core==5.0.0
+pyannote.metrics==3.2.1
 argparse==1.4.0
 ffmpeg==1.4 
 ffprobe==0.5 
 pydub==0.25.1
 docker==7.1.0
+pandas==2.2.2

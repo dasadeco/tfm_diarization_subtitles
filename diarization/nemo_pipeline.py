@@ -14,7 +14,7 @@ from nemo.collections.asr.parts.utils.speaker_utils import rttm_to_labels, label
 from pydub import AudioSegment
 import torch
 
-STATUS_FILE = 'status.txt'
+STATUS_FILE = 'nemo_pipeline_status.txt'
 EXECUTION_TIME_FILE = "NEMO_exec_time.txt"
 PATH_BASE_DATASETS = "datasets"
 FIN="FIN"
@@ -35,7 +35,7 @@ class Speaker_Models(Enum):
 ## Para guardar en un archivo el estado de la ejecución del script, este archivo es la manera que tiene el gestor de contenedores 
 # de saber que ha terminado la ejecución del script.
 def save_status(info_text):
-    with open(os.path.join(args.volume_path, STATUS_FILE), 'w', encoding="utf-8") as info_file:        
+    with open(os.path.join(args.volume_path, STATUS_FILE), 'w', encoding="utf-8") as info_file:                
         info_file.write(info_text)
         info_file.close()
 
@@ -49,15 +49,24 @@ def _buscar_by_extension_in_dataset(path, extension):
     return resultados    
 
 if __name__ == '__main__':
-    print("Llamado el Pipeline de Nemo")
+    
     parser = argparse.ArgumentParser(description='Pyannote NEMO Audio Speaker Diarization')
     parser.add_argument('-vad', '--vad_model', type=str, help='Indicamos el nombre del modelo VAD a utilizar')
     parser.add_argument('-sm', '--speaker_model', type=str, default='titanet_large', help='Indicamos el nombre del modelo para obtener embeddings a utilizar')
     parser.add_argument('-rp', '--reference_path', type=str, help='Ruta de la carpeta con archivos rttm de referencia si disponemos de ellos y se selecciona `oracle_vad`')
     parser.add_argument('-ns', '--num_speakers', default=None,  type=int, help='Indicamos el numero de speakers (pero tendría que ser el mismo número en todos los archivos)')
-    parser.add_argument('-vp', '--volume_path', type=str, help='Ruta de la carpeta con archivos de audio(.wav)')           
-    args = parser.parse_args()      
+    parser.add_argument('-vp', '--volume_path', type=str, help='Ruta de la carpeta con archivos de audio(.wav)')
+    args = parser.parse_args()
     
+    
+    logs_path = os.path.join(args.volume_path, "logs")
+    if not os.path.exists( logs_path):
+        os.makedirs( logs_path, exist_ok=True)
+    logging.basicConfig(filename=f'{logs_path}/reg_pipeline_nemo_{datetime.now().strftime("%Y%m%d%H%M%S")}.log', force=True,
+                        encoding='utf-8', level=logging.DEBUG, format='%(asctime)s %(message)s', datefmt='%Y-%m-%d %H:%M:%S')   
+    logger = logging.getLogger(__name__)
+    logger.info(f"Iniciando el Pipeline de Nemo. Parseados los parámetros...") 
+    print(f"Iniciando el Pipeline de Nemo. Parseados los parámetros...") 
     if args.vad_model is not None:
         if type(args.vad_model) == VAD_Models:
             vad_model = args.vad_model.value         
@@ -65,22 +74,20 @@ if __name__ == '__main__':
             vad_model = args.vad_model  
     else:
         vad_model = VAD_Models.ORACLE.value
-    
-    if type(args.speaker_model) == Speaker_Models:
-        pretrained_speaker_model = args.speaker_model.value         
-    else:
-        pretrained_speaker_model = args.speaker_model          
+        
+    if args.speaker_model is not None:
+        if type(args.speaker_model) == Speaker_Models:
+            pretrained_speaker_model = args.speaker_model.value         
+        else:
+            pretrained_speaker_model = args.speaker_model          
 
-    if not os.path.isdir(args.volume_path):
+    if not os.path.exists(args.volume_path) or not os.path.isdir(args.volume_path):
+        logger.info(f'No existe la carpeta {args.volume_path}')    
         print(f'No existe la carpeta {args.volume_path}')    
         exit(1)             
-    logger = logging.getLogger(__name__)
-    logs_path = os.path.join(args.volume_path, "logs")
-    if not os.path.exists( logs_path):
-        os.makedirs( logs_path, exist_ok=True)
-    logging.basicConfig(filename=f'{logs_path}/reg_pipeline_nemo_{datetime.now().strftime("%Y%m%d%H%M%S")}.log', 
-                        encoding='utf-8', level=logging.DEBUG, format='%(asctime)s %(message)s', datefmt='%Y-%m-%d %H:%M:%S')   
-    
+
+    print(f'START iniciando el pipeline de NeMo')    
+    logger.info(f'START iniciando el pipeline de NeMo')        
     if not args.reference_path or not os.path.exists(args.reference_path):
         args.reference_path = '/data/rttm_ref' 
         if not os.path.exists(args.reference_path) and vad_model==VAD_Models.ORACLE.value:       
@@ -98,10 +105,9 @@ if __name__ == '__main__':
             args.num_speakers = str(args.num_speakers)
             provide_num_speakers = True
 
-    print(f'START iniciando el pipeline de NeMo')    
-    logger.info(f'START iniciando el pipeline de NeMo')        
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')   
-        
+    print(f'Determinando el device')
+    logger.info(f'Determinando el device')
     # aplica la pipeline iterativamente en el volumen de archivos de audio
     datasets_path = os.path.join(args.volume_path, PATH_BASE_DATASETS)
     if not os.path.exists(datasets_path):
@@ -111,6 +117,7 @@ if __name__ == '__main__':
     tuplas = _buscar_by_extension_in_dataset(datasets_path, ".wav") 
     if os.path.exists(os.path.join(args.volume_path, "rttm", EXECUTION_TIME_FILE)):
         os.remove(os.path.join(args.volume_path, "rttm", EXECUTION_TIME_FILE))
+    combined_models_subfolder_name = ''
     for tupla in tuplas:
         rttm_ref_not_found = False
         wav_audio_file = tupla[0]   

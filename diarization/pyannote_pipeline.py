@@ -13,7 +13,7 @@ import time
 from pydub import AudioSegment
 import torch
 
-STATUS_FILE = 'status.txt'
+STATUS_FILE = 'pyannote_pipeline_status.txt'
 EXECUTION_TIME_FILE = "PYANNOTE_exec_time.txt"
 PATH_BASE_DATASETS = "datasets"
 FIN="FIN"
@@ -52,13 +52,13 @@ if __name__ == '__main__':
         pipeline_model = args.pipeline_model.value         
     else:
         pipeline_model = args.pipeline_model  
-        
-    logger = logging.getLogger(__name__)
+            
     logs_path = os.path.join(args.volume_path, "logs")
     if not os.path.exists( logs_path):
         os.makedirs( logs_path, exist_ok=True)
-    logging.basicConfig(filename=f'{logs_path}/reg_pipeline_{pipeline_model}_{datetime.now().strftime("%Y%m%d%H%M%S")}.log', 
+    logging.basicConfig(filename=f'{logs_path}/reg_pipeline_{pipeline_model}_{datetime.now().strftime("%Y%m%d%H%M%S")}.log', force=True,
                         encoding='utf-8', level=logging.DEBUG, format='%(asctime)s %(message)s', datefmt='%Y-%m-%d %H:%M:%S')   
+    logger = logging.getLogger(__name__)
     
     logger.info(f'pyannote/{pipeline_model} START obtención del modelo')    
     print(f'pyannote/{pipeline_model} START obtención del modelo')    
@@ -76,7 +76,12 @@ if __name__ == '__main__':
         for tupla in tuplas:
             wav_audio_file = tupla[0]   
             if args.volume_path != tupla[1]:
-                dataset_subfolder = tupla[1]                   
+                if PATH_BASE_DATASETS==tupla[1]:
+                    dataset_subfolder = '.'
+                    print(f'El audio {wav_audio_file} no tiene una carpeta de Datasets asociada')
+                    logger.warning(f'El audio {wav_audio_file} no tiene una carpeta de Datasets asociada')                    
+                else:    
+                    dataset_subfolder = tupla[1]                   
                 wav_file_path = os.path.join(datasets_path, dataset_subfolder, wav_audio_file)                                    
                 start_time = time.time()
                 ###########

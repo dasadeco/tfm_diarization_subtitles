@@ -1,4 +1,4 @@
-FROM python:3.10-slim-buster
+FROM python:3.10-slim
 LABEL description="Pyannote pipeline para diarización"  
 LABEL author="dasadeco (aka Daniel Sáenz de Cosca)" 
 

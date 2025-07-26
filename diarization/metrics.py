@@ -211,8 +211,11 @@ class MetricsCalculator():
                 else: 
                     data[metric].append(metrics[metric])
 
-        metrics_df = pd.DataFrame(data, index = index, columns=columns)    
-        export_path = os.path.join(self.hypotheses_path, os.path.pardir, "metrics", "metrics.xlsx")
+        metrics_df = pd.DataFrame(data, index = index, columns=columns)  
+        metrics_path = os.path.join(self.hypotheses_path, os.path.pardir, "metrics")
+        if not os.path.exists(metrics_path):
+            os.makedirs( metrics_path, exist_ok=True )          
+        export_path = os.path.join(metrics_path, "metrics.xlsx")
         metrics_df.to_excel(export_path,  index=False)
         wb = load_workbook(export_path)
         ws = wb["Sheet1"]   
@@ -263,8 +266,10 @@ if __name__ == '__main__':
             
     files = []
     logs_path = os.path.join(args.hypotheses_path, os.path.pardir, "logs")
+    if not os.path.exists(logs_path):
+        os.makedirs( logs_path, exist_ok=True )
     logger = logging.getLogger(__name__)
-    logging.basicConfig(filename=f'{logs_path}/metrics.log',
+    logging.basicConfig(filename=f'{logs_path}/metrics.log', force=True,
                         encoding='utf-8', level=logging.DEBUG, format='%(asctime)s %(message)s', datefmt='%Y-%m-%d %H:%M:%S')            
     if args.collar is not None and args.collar > 0.5:
         logger.warning("Expected collar < 0.500")

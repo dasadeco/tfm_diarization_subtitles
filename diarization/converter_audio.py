@@ -95,7 +95,9 @@ class ConverterToAudio:
         for tupla in tuplas:
             audio_file = tupla[0]   
             if self.audio_media_path != tupla[1]:
-                audio_subfolder = tupla[1]                       
+                audio_subfolder = tupla[1]
+                if audio_subfolder ==  os.path.basename(self.audio_media_path):
+                    audio_subfolder = '.'                                      
                 audio_file_under = audio_file.replace(" ","_")
                 os.rename(os.path.join(self.audio_media_path, audio_subfolder, audio_file), os.path.join(self.audio_media_path, audio_subfolder, audio_file_under))    
                 if not os.path.exists(os.path.join(self.output_media_path, audio_subfolder)):
