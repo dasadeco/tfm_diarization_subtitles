@@ -23,6 +23,7 @@ EXECUTION_TIME_FILE = "exec_time.txt"
 EXECUTION_NEMO_TIME_FILE = "NEMO_exec_time.txt"
 EXECUTION_PYANNOTE_TIME_FILE = "PYANNOTE_exec_time.txt"  
 
+
 class DatasetEnum(Enum):
     canaluned = "canal.uned"
     fiapas = "FIAPAS"
@@ -97,6 +98,12 @@ class MetricsByAudioFile():
 
 total_metrics:list[MetricsByAudioFile] = []
 
+def _check_in_list(tuplas_list, new_tupla):
+    for tupla in tuplas_list:
+        if tupla==new_tupla:
+            return True
+    return False    
+
 def _buscar_by_extension_in_dataset_2_niveles(path, extension):
     resultados = []
     for carpeta_actual, carpetas, _ in os.walk(path):
@@ -105,12 +112,14 @@ def _buscar_by_extension_in_dataset_2_niveles(path, extension):
             nombre_subcarpeta = os.path.basename(subcarpeta_actual)
             for archivo in archivos:
                 if archivo.lower().endswith(extension):
-                    resultados.append((archivo, nombre_subcarpeta, carpeta))
+                    new_tupla = (archivo, nombre_subcarpeta, carpeta)
+                    if not _check_in_list(resultados, new_tupla):
+                        resultados.append(new_tupla)
     return resultados
 
 
 class MetricsCalculator():
-    
+        
     def __init__(self, hypotheses_path, reference_path, metrics_list, collar, skip_overlap):
         self.hypotheses_path = hypotheses_path
         self.reference_path = reference_path
@@ -118,13 +127,32 @@ class MetricsCalculator():
         self.collar = collar
         self.skip_overlap = skip_overlap
         
+        logs_path = os.path.join(self.hypotheses_path, os.path.pardir, "logs")
+        if not os.path.exists(logs_path):
+            os.makedirs( logs_path, exist_ok=True )        
+        logging.basicConfig(filename=f'{logs_path}/metrics.log', force=True,
+                            encoding='utf-8', level=logging.DEBUG, format='%(asctime)s %(message)s', datefmt='%Y-%m-%d %H:%M:%S')            
+        self.logger = logging.getLogger(__name__)
+        
+        if self.collar is not None and self.collar > 0.5:
+            self.logger.warning("Expected collar < 0.500")
+                                        
+        if self.metrics_list.lower() == 'all':
+            self.metrics_list= ''
+            for me in MetricsEnum:
+                self.metrics_list += me.name + ','
+            self.metrics_list = self.metrics_list[:-1]         
+        
         
     def start_calc_metrics(self):
         tuplas_hyp = _buscar_by_extension_in_dataset_2_niveles(self.hypotheses_path, ".rttm")                                                                         
         for tupla_hyp in tuplas_hyp:
             rttm_hyp_file = tupla_hyp[0]               
-            model_subfolder = tupla_hyp[1]           
-            dataset_subfolder_path = os.path.join(self.hypotheses_path, tupla_hyp[2])
+            model_subfolder = tupla_hyp[1]
+            if tupla_hyp[1] == tupla_hyp[2]:
+                dataset_subfolder_path = os.path.join(self.hypotheses_path, '.')
+            else:    
+                dataset_subfolder_path = os.path.join(self.hypotheses_path, tupla_hyp[2])
             pipeline = PipelineEnum.PYANNOTE.name if 'speaker-diarization' in model_subfolder else PipelineEnum.NEMO.name
             self.executeMetrics(self.metrics_list.split(','), self.hypotheses_path, dataset_subfolder_path, model_subfolder, \
                 rttm_hyp_file, self.reference_path, pipeline, self.collar, self.skip_overlap)
@@ -250,7 +278,7 @@ class MetricsCalculator():
                     break
         if rttm_file == word[0] and model == word[1] and dataset == word[2]:
             rtf = float(exec_time)/float(duration)  # Real-Time Factor
-            logger.info(f"Ratio de procesamiento del audio {rttm_file.replace('.rttm', '')}: {str(rtf)}")
+            self.logger.info(f"Ratio de procesamiento del audio {rttm_file.replace('.rttm', '')}: {str(rtf)}")
             print(f"Ratio de procesamiento del audio {rttm_file.replace('.rttm', '')}: {str(rtf)}")          
         return rtf
             
@@ -264,27 +292,10 @@ if __name__ == '__main__':
     parser.add_argument('-so', '--skip_overlap', type=bool, default=False, help='Si se ignora el habla solapada o no')
     args = parser.parse_args()
             
-    files = []
-    logs_path = os.path.join(args.hypotheses_path, os.path.pardir, "logs")
-    if not os.path.exists(logs_path):
-        os.makedirs( logs_path, exist_ok=True )
-    logger = logging.getLogger(__name__)
-    logging.basicConfig(filename=f'{logs_path}/metrics.log', force=True,
-                        encoding='utf-8', level=logging.DEBUG, format='%(asctime)s %(message)s', datefmt='%Y-%m-%d %H:%M:%S')            
-    if args.collar is not None and args.collar > 0.5:
-        logger.warning("Expected collar < 0.500")
-                                    
-    if args.metrics_list.lower() == 'all':
-        args.metrics_list= ''
-        for me in MetricsEnum:
-            args.metrics_list += me.name + ','
-        args.metrics_list = args.metrics_list[:-1]        
-                
     if os.path.exists(args.hypotheses_path) and os.path.exists(args.reference_path):
         metrics_calc = MetricsCalculator(hypotheses_path=args.hypotheses_path, reference_path=args.reference_path, metrics_list=args.metrics_list, 
                         collar=args.collar, skip_overlap=args.skip_overlap)
         metrics_calc.start_calc_metrics()
     else:
-        logger.info("No existe la carpeta de archivos RTTM de hipótesis o la carpeta de archivos de referencia. NO se pueden calcular las métricas.")
         print("No existe la carpeta de archivos RTTM de hipótesis o la carpeta de archivos de referencia. NO se pueden calcular las métricas.")
             

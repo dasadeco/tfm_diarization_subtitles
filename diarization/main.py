@@ -55,30 +55,31 @@ if __name__ == '__main__':
             images_pipe_list.append(DockerImages.pyannote_pipeline.value)            
         else:
             images_pipe_list.append(args.image_name)
-                
-    dockerManager = DockerDiarizationManager(host_volume_path=args.host_volume_path, container_volume_path=args.container_volume_path, 
+    if not args.no_diarize or args.genera_all_rttm:            
+        dockerManager = DockerDiarizationManager(host_volume_path=args.host_volume_path, container_volume_path=args.container_volume_path, 
                                              image_name_list=images_pipe_list) 
     
     if args.genera_all_rttm:
         dockerManager.run_converter_rttm_container(image_name='dasaenzd/converter_subtitles:latest', container_name='converter_java_subtitles', delta=args.delta)
-        
-    params = {}
-    for img in images_pipe_list:
-        if img == DockerImages.pyannote_pipeline.value:            
-            params['pipeline_model'] = args.pipeline_model
-            params['huggingface_token'] = args.huggingface_token        
-        if img == DockerImages.nemo_pipeline.value:                            
-            params['vad_model'] = args.vad_model
-            params['speaker_model'] = args.speaker_model
-            params['reference_path'] = '/data/rttm_ref'  # Pasamos el valor de la carpeta en el contenedor con los rttm de referencia              
-            if args.num_speakers is not None:
-                if type(args.num_speakers) != int:
-                    print("Número de speakers debe ser un entero!")
-                else:    
-                    params['num_speakers'] = str(args.num_speakers)  
-            else:        
-                params['num_speakers'] = None
-        call_manager_to_execute_container(img, params)
+    
+    if not args.no_diarize:    
+        params = {}
+        for img in images_pipe_list:
+            if img == DockerImages.pyannote_pipeline.value:            
+                params['pipeline_model'] = args.pipeline_model
+                params['huggingface_token'] = args.huggingface_token        
+            if img == DockerImages.nemo_pipeline.value:                            
+                params['vad_model'] = args.vad_model
+                params['speaker_model'] = args.speaker_model
+                params['reference_path'] = '/data/rttm_ref'  # Pasamos el valor de la carpeta en el contenedor con los rttm de referencia              
+                if args.num_speakers is not None:
+                    if type(args.num_speakers) != int:
+                        print("Número de speakers debe ser un entero!")
+                    else:    
+                        params['num_speakers'] = str(args.num_speakers)  
+                else:        
+                    params['num_speakers'] = None
+            call_manager_to_execute_container(img, params)
         
     if args.hypotheses_path is None or not os.path.exists(args.hypotheses_path): 
         args.hypotheses_path = os.path.join(args.host_volume_path, "rttm")
