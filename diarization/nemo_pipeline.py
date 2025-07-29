@@ -52,6 +52,7 @@ if __name__ == '__main__':
     
     parser = argparse.ArgumentParser(description='Pyannote NEMO Audio Speaker Diarization')
     parser.add_argument('-vad', '--vad_model', type=str, help='Indicamos el nombre del modelo VAD a utilizar')
+    parser.add_argument('-mdo', '--min_duration_off', type=float,  default=0.0, help="Tiempo mínimo que tienen que alcanzar los silencios o se eliminan")
     parser.add_argument('-sm', '--speaker_model', type=str, default='titanet_large', help='Indicamos el nombre del modelo para obtener embeddings a utilizar')
     parser.add_argument('-rp', '--reference_path', type=str, help='Ruta de la carpeta con archivos rttm de referencia si disponemos de ellos y se selecciona `oracle_vad`')
     parser.add_argument('-ns', '--num_speakers', default=None,  type=int, help='Indicamos el numero de speakers (pero tendría que ser el mismo número en todos los archivos)')
@@ -204,8 +205,8 @@ if __name__ == '__main__':
                 #config.diarizer.vad.parameters.onset = 0.8
                 #config.diarizer.vad.parameters.offset = 0.6
                 #config.diarizer.vad.parameters.pad_offset = -0.05
-                #min_duration_on: 0.5 # Threshold for short speech segment deletion
-                #min_duration_off: 0.5 # Threshold for small non_speech deletion                
+                #config.diarizer.vad.parameters.min_duration_on = 0.5 # Threshold for short speech segment deletion
+                config.diarizer.vad.parameters.min_duration_off = args.min_duration_off # Threshold for small non_speech deletion                
 
             start_time = time.time()
             ##### INICIO DE LA DIARIZACION ###########

@@ -19,7 +19,7 @@ if __name__ == '__main__':
     parser.add_argument('-cvp', '--container_volume_path', type=str, default='/media', help='Path en el contenedor donde se guardan los archivos wav')
     parser.add_argument('-nd', '--no_diarize', action='store_true', help='Si se indica, no realiza diarización')                   
     parser.add_argument('-img', '--image_name', type=str, help='Nombre de la imagen docker cuando sólo elegimos una')    
-    parser.add_argument('-pm', '--pipeline_model', type=str, help='Versión de la Pipeline Pyannote')
+    parser.add_argument('-pv', '--pipeline_version', type=str, help='Versión de la Pipeline Pyannote')
     parser.add_argument('-hft', '--huggingface_token', type=str, help='Token de Huggingface')
     parser.add_argument('-vad', '--vad_model', type=str, help='Indicamos el nombre del modelo VAD a utilizar')
     parser.add_argument('-sm', '--speaker_model', type=str, help='Indicamos el nombre del modelo para obtener embeddings a utilizar')    
@@ -66,7 +66,7 @@ if __name__ == '__main__':
         params = {}
         for img in images_pipe_list:
             if img == DockerImages.pyannote_pipeline.value:            
-                params['pipeline_model'] = args.pipeline_model
+                params['pipeline_version'] = args.pipeline_version
                 params['huggingface_token'] = args.huggingface_token        
             if img == DockerImages.nemo_pipeline.value:                            
                 params['vad_model'] = args.vad_model

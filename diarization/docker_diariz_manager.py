@@ -138,8 +138,8 @@ class DockerDiarizationManager:
                 status_file.close()
             cmd_list = ["python", container_name + ".py", "--volume_path", self.container_volume_path]
             if container_name == DockerImages.pyannote_pipeline.name:
-                if 'pipeline_model' in params and params['pipeline_model'] is not None:
-                    cmd_list.extend([ "--pipeline_model", params['pipeline_model'] ])
+                if 'pipeline_version' in params and params['pipeline_version'] is not None:
+                    cmd_list.extend([ "--pipeline_version", params['pipeline_version'] ])
                 if 'huggingface_token' in params and params['huggingface_token'] is not None:
                     cmd_list.extend([ "--huggingface_token", params['huggingface_token'] ])                    
             elif container_name == DockerImages.nemo_pipeline.name:                       
@@ -204,7 +204,7 @@ if __name__ == '__main__':
     parser.add_argument('-hvp', '--host_volume_path', type=str, default='E:\\Desarrollo\\TFM\\data\\media', help='Path de la maquina host ( P. ej. mi Windows 10)')        
     parser.add_argument('-cvp', '--container_volume_path', type=str, default='/media', help='Path en el contenedor donde se guardan los archivos wav')
     parser.add_argument('-img', '--image_name', type=str, help='Nombre de la imagen docker')        
-    parser.add_argument('-pm', '--pipeline_model', type=str, help='Versión de la Pipeline Pyannote')
+    parser.add_argument('-pm', '--pipeline_version', type=str, help='Versión de la Pipeline Pyannote')
     parser.add_argument('-hft', '--huggingface_token', type=str, help='Token de Huggingface')
     parser.add_argument('-vad', '--vad_model', type=str, help='Indicamos el nombre del modelo VAD a utilizar')
     parser.add_argument('-sm', '--speaker_model', type=str, help='Indicamos el nombre del modelo para obtener embeddings a utilizar')
@@ -217,8 +217,8 @@ if __name__ == '__main__':
     if args.image_name is not None:   
         container_name =  args.image_name.split('/')[1].split(':')[0]                     
         params = {}
-        if args.pipeline_model is not None:
-            params['pipeline_model'] = args.pipeline_model
+        if args.pipeline_version is not None:
+            params['pipeline_version'] = args.pipeline_version
         if args.huggingface_token is not None:
             params['huggingface_token'] = args.huggingface_token
         if args.vad_model is not None:

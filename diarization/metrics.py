@@ -85,9 +85,9 @@ class Speaker_Models(Enum):
 
 
 class MetricsByAudioFile():    
-    def __init__(self, rttm_file:str, pipeline_model:PipelineVersions, vad_model:str, embedding_model:str, metrics_map:dict, dataset=DatasetEnum):
+    def __init__(self, rttm_file:str, pipeline_version:PipelineVersions, vad_model:str, embedding_model:str, metrics_map:dict, dataset=DatasetEnum):
         self.rttm_file = rttm_file
-        self.pipeline_model = pipeline_model
+        self.pipeline_version = pipeline_version
         self.vad_model = vad_model
         self.embedding_model = embedding_model
         self.metrics_map = metrics_map        
@@ -225,10 +225,10 @@ class MetricsCalculator():
         columns = ["Audios", "Datasets", "Pyannote Pipeline Model", "NeMo VAD Model", "NeMo Embeddings Model"]
         rttm_files = [ mbaf.rttm_file for mbaf in total_metrics]    
         datasets = [ mbaf.dataset for mbaf in total_metrics]        
-        pipeline_models = [ mbaf.pipeline_model for mbaf in total_metrics]
+        pipeline_versions = [ mbaf.pipeline_version for mbaf in total_metrics]
         vad_models = [ mbaf.vad_model for mbaf in total_metrics]
         embeddings_models = [ mbaf.embedding_model for mbaf in total_metrics]
-        data = {"Audios": rttm_files, "Datasets": datasets, "Pyannote Pipeline Model": pipeline_models, "NeMo VAD Model": vad_models, "NeMo Embeddings Model": embeddings_models}
+        data = {"Audios": rttm_files, "Datasets": datasets, "Pyannote Pipeline Version": pipeline_versions, "NeMo VAD Model": vad_models, "NeMo Embeddings Model": embeddings_models}
         list_metrics = [mbaf.metrics_map for mbaf in total_metrics]
         for metrics in list_metrics:
             for metric in metrics.keys():

@@ -1,6 +1,8 @@
 ## Esto es un TFM sobre Subtítulos y Diarización.
 
+Reconocimientos:
 Hervé Bredin es el autor de *Pyannote-audio* : https://github.com/hbredin
+También citar a la comunidad de diarizadores de la que se han tomado dos modulo para "modular Pyannote": https://github.com/huggingface/diarizers/blob/main/README.md
 
 Construyendo las Docker Images:
 --------------------------------
