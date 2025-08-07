@@ -3,18 +3,15 @@
 # 2. visit hf.co/pyannote/segmentation and accept user conditions
 # 3. visit hf.co/settings/tokens to create an access token
 # 4. instantiate pretrained speaker diarization pipeline
-from pyannote.audio import Inference, Model, Pipeline
+from pyannote.audio import Model
 from pyannote.audio.pipelines import SpeakerDiarization
 from pyannote.audio.pipelines.utils.hook import ProgressHook
 import os, argparse, logging
 from enum import Enum
 from datetime import datetime
 import time
-from omegaconf import OmegaConf
-
 from pydub import AudioSegment
 import torch
-
 from diarizers.models.model import SegmentationModel
 
 STATUS_FILE = 'pyannote_pipeline_status.txt'
@@ -24,26 +21,8 @@ FIN="FIN"
 
 class PipelineVersions(Enum):
     V2_1 ='speaker-diarization@2.1'
-    #V3_0 ='speaker-diarization-3.0'
-    V3_1 ='speaker-diarization-3.1'
-    
-class SegmentationModels(Enum):
-    segmentation2_1 = 'pyannote/segmentation'
-    segmentation3_0 = 'pyannote/segmentation-3.0'
-    callhome_spain = 'diarizers-community/speaker-segmentation-fine-tuned-callhome-spa'
-    
-class SpeakerModels(Enum):
-    pyannote = 'pyannote/embedding'    
-    wespeaker = 'pyannote/wespeaker-voxceleb-resnet34-LM'
-    ecapa = "speechbrain/spkrec-ecapa-voxceleb"
-    
-class ClusteringMethods(Enum):   
-    centroid = 'centroid'
-    average = 'average'
-    complete = 'complete'
-    median = 'median'
-    single = 'single'
-    ward = 'ward'
+    V3_1 ='speaker-diarization-3.1'   
+
 
 ## Para guardar en un archivo el estado de la ejecución del script, este archivo es la manera que tiene el gestor de contenedores 
 # de saber que ha terminado la ejecución del script.
@@ -63,7 +42,7 @@ def _buscar_by_extension_in_dataset(path, extension):
 
 if __name__ == '__main__':
     print("Llamado el Pipeline de Pyannote ... ")
-## usage: pyannote_pipeline.py [-h] [-pv pipeline_version] [-hft HUGGINGFACE_TOKEN] [-vp DOCKER_VOLUME_PATH]    
+## usage: pyannote_pipeline.py [-h] [-hft HUGGINGFACE_TOKEN] [-vp DOCKER_VOLUME_PATH] [params ...]
     parser = argparse.ArgumentParser(description='Pyannote PIPELINE Audio Speaker Diarization')
     parser.add_argument('-pv', '--pipeline_version', type=str, default=PipelineVersions.V3_1, help="Versión de la Pipeline Pyannote")
     parser.add_argument('-hft', '--huggingface_token', type=str, help="Token de Huggingface")
@@ -81,22 +60,7 @@ if __name__ == '__main__':
         pipeline_version = args.pipeline_version.value         
     else:
         pipeline_version = args.pipeline_version 
-     
-    if type(args.segmentation_model) == SegmentationModels:
-        seg_model_value = args.segmentation_model.value
-    else:    
-        seg_model_value = args.segmentation_model
-        
-    if type(args.speaker_model) == SpeakerModels:
-        speaker_model_value = args.speaker_model.value
-    else:    
-        speaker_model_value = args.speaker_model        
-        
-    if type(args.method_cluster) == ClusteringMethods:
-        method_cluster_value = args.method_cluster.value
-    else:    
-        method_cluster_value = args.method_cluster                
-            
+                         
     logs_path = os.path.join(args.volume_path, "logs")
     if not os.path.exists( logs_path):
         os.makedirs( logs_path, exist_ok=True)
@@ -113,23 +77,32 @@ if __name__ == '__main__':
          exit(1)        
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    segmentation_model = SegmentationModel().from_pretrained(seg_model_value).to_pyannote_model()    
-    embedding_model = Model.from_pretrained(speaker_model_value)
-
+    if not args.segmentation_model.startswith("pyannote/"):
+        segmentation_model = SegmentationModel().from_pretrained(args.segmentation_model,).to_pyannote_model()    
+    else:
+        segmentation_model = args.segmentation_model        
+    if args.speaker_model.startswith("pyannote/"):
+        embedding_model = Model.from_pretrained(args.speaker_model, use_auth_token=args.huggingface_token)
+    else:    
+        embedding_model = args.speaker_model
+        
+    pipeline_params_dict = {
+        "segmentation": {
+            "min_duration_off": args.min_duration_off
+        },
+        "clustering": {
+            "method": args.method_cluster,
+            "min_cluster_size": args.min_cluster_size,
+            "threshold": args.threshold_cluster
+        }
+    }
+    if args.segmentation_model == "pyannote/segmentation":
+        pipeline_params_dict["segmentation"]["threshold"] = 0.5
     pipeline = SpeakerDiarization(embedding=embedding_model, segmentation=segmentation_model, 
                                   clustering="AgglomerativeClustering" , 
-                                  use_auth_token=args.huggingface_token).to(device=device)    
-    pipeline.instantiate({
-    "segmentation": {
-        "min_duration_off": args.min_duration_off,
-    },
-    "clustering": {
-        "method": method_cluster_value,
-        "min_cluster_size": args.min_cluster_size,
-        "threshold": args.threshold_cluster,
-    },})
-                
-                
+                                  use_auth_token=args.huggingface_token).instantiate(pipeline_params_dict) \
+                .to(device=device)        
+                                
     if os.path.isdir(args.volume_path):
         tuplas = _buscar_by_extension_in_dataset(datasets_path, ".wav") 
         if os.path.exists(os.path.join(args.volume_path, "rttm", EXECUTION_TIME_FILE)):
