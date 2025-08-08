@@ -105,6 +105,26 @@ if __name__ == '__main__':
     if os.path.exists(os.path.join(args.volume_path, "rttm", EXECUTION_TIME_FILE)):
         os.remove(os.path.join(args.volume_path, "rttm", EXECUTION_TIME_FILE))
     combined_models_subfolder_name = ''
+    ## INICIO Configuración general para todos los archivos de audio 
+    config_diar_inf_filename = args.msdd_model + '.yaml'
+    if not os.path.exists(os.path.join(datasets_path, config_diar_inf_filename)):
+        print("Descargamos el archivo YAML para la configuración de Inferencia de Diarización de Nemo")
+        logger.info("Descargamos el archivo YAML para la configuración de Inferencia de Diarización de Nemo")
+        wget.download(CONFIG_DIAR_INF_URL + config_diar_inf_filename, os.path.join(datasets_path, config_diar_inf_filename))
+    config = OmegaConf.load(os.path.join(datasets_path, config_diar_inf_filename))
+    #print(OmegaConf.to_yaml(config))  ## Descomentar si queremos ver la config. por defecto.
+    print(f"El tipo de dispositivo de proceso es {device.type}")
+    logger.info(f"El tipo de dispositivo de proceso es {device.type}")
+    if device.type == 'cpu':
+        config.num_workers = 0 # Avoiding error with SpeakerLabel                
+    config.verbose = False
+    config.diarizer.msdd_model.model_path = args.msdd_model    
+    config.diarizer.speaker_embeddings.model_path = args.speaker_model
+    config.diarizer.speaker_embeddings.parameters.window_length_in_sec = window_lengths
+    config.diarizer.speaker_embeddings.parameters.shift_length_in_sec = window_steps
+    config.diarizer.speaker_embeddings.parameters.multiscale_weights= window_weights
+    config.diarizer.clustering.parameters.oracle_num_speakers = provide_num_speakers    
+    ## FIN Configuración general para todos los archivos de audio 
     for tupla in tuplas:
         rttm_ref_not_found = False
         wav_audio_file = tupla[0]   
@@ -163,26 +183,8 @@ if __name__ == '__main__':
                 print(f"Preparado el archivo de manifiesto en {input_manifest_json_path}")
                 logger.info(f"Preparado el archivo de manifiesto en {input_manifest_json_path}")
 
-            config_diar_inf_filename = args.msdd_model + '.yaml'
-            if not os.path.exists(os.path.join(datasets_path, config_diar_inf_filename)):
-                print("Descargamos el archivo YAML para la configuración de Inferencia de Diarización de Nemo")
-                logger.info("Descargamos el archivo YAML para la configuración de Inferencia de Diarización de Nemo")
-                wget.download(CONFIG_DIAR_INF_URL + config_diar_inf_filename, os.path.join(datasets_path, config_diar_inf_filename))
-            config = OmegaConf.load(os.path.join(datasets_path, config_diar_inf_filename))
-            #print(OmegaConf.to_yaml(config))  ## Descomentar si queremos ver la config. por defecto.
-            print(f"El tipo de dispositivo de proceso es {device.type}")
-            logger.info(f"El tipo de dispositivo de proceso es {device.type}")
-            if device.type == 'cpu':
-                config.num_workers = 0 # Avoiding error with SpeakerLabel                
-            config.verbose = False
-            config.diarizer.msdd_model.model_path = args.msdd_model
             config.diarizer.manifest_filepath = os.path.join(rttm_hyp_model_path, input_manifest_json_path)
             config.diarizer.out_dir = rttm_hyp_model_path # Directory to store intermediate files and prediction outputs
-            config.diarizer.speaker_embeddings.model_path = args.speaker_model
-            config.diarizer.speaker_embeddings.parameters.window_length_in_sec = window_lengths
-            config.diarizer.speaker_embeddings.parameters.shift_length_in_sec = window_steps
-            config.diarizer.speaker_embeddings.parameters.multiscale_weights= window_weights
-            config.diarizer.clustering.parameters.oracle_num_speakers = provide_num_speakers
                         
             config.diarizer.oracle_vad = vad_model==VADModels.ORACLE.value and not rttm_ref_not_found #----> ORACLE VAD o MARBLENET VAD
             if vad_model != VADModels.ORACLE.value:
