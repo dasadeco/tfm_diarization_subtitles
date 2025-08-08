@@ -1,16 +1,13 @@
 import os, argparse, logging
 import shutil
-from enum import Enum
 from datetime import datetime
 import time
 import json
 from omegaconf import OmegaConf
 import wget
-
-import nemo.collections.asr as nemo_asr
+import numpy as np
 from nemo.collections.asr.models import ClusteringDiarizer
-from nemo.collections.asr.parts.utils.speaker_utils import rttm_to_labels, labels_to_pyannote_object
-
+from nemo_import import VADModels as VADModels
 from pydub import AudioSegment
 import torch
 
@@ -18,19 +15,10 @@ STATUS_FILE = 'nemo_pipeline_status.txt'
 EXECUTION_TIME_FILE = "NEMO_exec_time.txt"
 PATH_BASE_DATASETS = "datasets"
 FIN="FIN"
-CONFIG_GENERAL_DIAR_INF_FILENAME = "diar_infer_general.yaml"
-CONFIG_GENERAL_DIAR_INF_URL = "https://raw.githubusercontent.com/NVIDIA/NeMo/main/examples/speaker_tasks/diarization/conf/inference/" \
-                                + CONFIG_GENERAL_DIAR_INF_FILENAME
 
-class VAD_Models(Enum):
-    ORACLE = 'oracle_vad'
-    MARBLE = 'vad_multilingual_marblenet'
-    
-class Speaker_Models(Enum):
-    TITANET_LARGE = "titanet_large" 
-    ECAPA_TDNN = "ecapa_tdnn" 
-    SPEAKER_VERIF = "speakerverification_speakernet"    
-    TITANET_SMALL = "titanet_small"
+#CONFIG_GENERAL_DIAR_INF_FILENAME = "diar_infer_general.yaml"
+CONFIG_DIAR_INF_URL = "https://raw.githubusercontent.com/NVIDIA/NeMo/main/examples/speaker_tasks/diarization/conf/inference/"
+#CONFIG_GENERAL_DIAR_INF_URL = CONFIG_DIAR_INF_URL + CONFIG_GENERAL_DIAR_INF_FILENAME
 
 ## Para guardar en un archivo el estado de la ejecución del script, este archivo es la manera que tiene el gestor de contenedores 
 # de saber que ha terminado la ejecución del script.
@@ -49,16 +37,17 @@ def _buscar_by_extension_in_dataset(path, extension):
     return resultados    
 
 if __name__ == '__main__':
-    
+
     parser = argparse.ArgumentParser(description='Pyannote NEMO Audio Speaker Diarization')
-    parser.add_argument('-vad', '--vad_model', type=str, help='Indicamos el nombre del modelo VAD a utilizar')
-    parser.add_argument('-mdo', '--min_duration_off', type=float,  default=0.0, help="Tiempo mínimo que tienen que alcanzar los silencios o se eliminan")
-    parser.add_argument('-sm', '--speaker_model', type=str, default='titanet_large', help='Indicamos el nombre del modelo para obtener embeddings a utilizar')
-    parser.add_argument('-rp', '--reference_path', type=str, help='Ruta de la carpeta con archivos rttm de referencia si disponemos de ellos y se selecciona `oracle_vad`')
-    parser.add_argument('-ns', '--num_speakers', default=None,  type=int, help='Indicamos el numero de speakers (pero tendría que ser el mismo número en todos los archivos)')
     parser.add_argument('-vp', '--volume_path', type=str, help='Ruta de la carpeta con archivos de audio(.wav)')
+    parser.add_argument('-vad', '--vad_model', type=str, default='oracle_vad', help='Indicamos el nombre del modelo VAD a utilizar')
+    parser.add_argument('-rp', '--reference_path', type=str, help='Ruta de la carpeta con archivos rttm de referencia si disponemos de ellos y se selecciona `oracle_vad`')
+    parser.add_argument('-sm', '--speaker_model', type=str, default='titanet_large', help='Indicamos el nombre del modelo para obtener embeddings a utilizar')
+    parser.add_argument('-mdo', '--min_duration_off', type=float,  default=0.0, help="Tiempo mínimo que tienen que alcanzar los silencios o se eliminan")            
+    parser.add_argument('-ns', '--num_speakers', default=None,  type=int, help='Indicamos el numero de speakers (pero tendría que ser el mismo número en todos los archivos)')    
+    parser.add_argument('-mm', '--msdd_model', type=str, default='diar_infer_general', help='Indicamos el nombre del modelo Multiscala Diarization Decoder')
+    parser.add_argument('-wl', '--window_lengths', type=str, default='[1.5]', help='Lista de longitudes de ventana modelo Multiscale Diarization Decoder')
     args = parser.parse_args()
-    
     
     logs_path = os.path.join(args.volume_path, "logs")
     if not os.path.exists( logs_path):
@@ -68,20 +57,17 @@ if __name__ == '__main__':
     logger = logging.getLogger(__name__)
     logger.info(f"Iniciando el Pipeline de Nemo. Parseados los parámetros...") 
     print(f"Iniciando el Pipeline de Nemo. Parseados los parámetros...") 
-    if args.vad_model is not None:
-        if type(args.vad_model) == VAD_Models:
-            vad_model = args.vad_model.value         
-        else:
-            vad_model = args.vad_model  
-    else:
-        vad_model = VAD_Models.ORACLE.value
-        
-    if args.speaker_model is not None:
-        if type(args.speaker_model) == Speaker_Models:
-            pretrained_speaker_model = args.speaker_model.value         
-        else:
-            pretrained_speaker_model = args.speaker_model          
 
+    vad_model = args.vad_model         
+    
+    if type(args.window_lengths) != list:
+        window_lengths = [(i.lstrip(' ').rstrip(' ')) for i in args.window_lengths.lstrip('[').rstrip(']').split(',')]
+        window_lengths = np.fromiter( window_lengths, dtype=float).tolist()
+    else:
+        window_lengths = args.window_lengths
+    window_steps = [i/2 for i in window_lengths]
+    window_weights =[1 for _ in window_lengths]    
+         
     if not os.path.exists(args.volume_path) or not os.path.isdir(args.volume_path):
         logger.info(f'No existe la carpeta {args.volume_path}')    
         print(f'No existe la carpeta {args.volume_path}')    
@@ -91,10 +77,10 @@ if __name__ == '__main__':
     logger.info(f'START iniciando el pipeline de NeMo')        
     if not args.reference_path or not os.path.exists(args.reference_path):
         args.reference_path = '/data/rttm_ref' 
-        if not os.path.exists(args.reference_path) and vad_model==VAD_Models.ORACLE.value:       
+        if not os.path.exists(args.reference_path) and vad_model==VADModels.ORACLE.value:       
             print("No hay carpeta de archivos RTTM de referencia con VAD_MODEL seleccionado!")
             logger.warning(f"No hay carpeta de archivos RTTM de referencia con VAD_MODEL seleccionado!")
-            vad_model= VAD_Models.MARBLE.value            
+            vad_model= VADModels.MARBLE.value            
      
     provide_num_speakers = False
     if args.num_speakers is not None:
@@ -136,8 +122,8 @@ if __name__ == '__main__':
                 dataset_subfolder = tupla[1]             
                 wav_file_path = os.path.join(datasets_path, dataset_subfolder, wav_audio_file)
                 print(f'El audio {wav_audio_file} está en la carpeta de Datasets asociada')
-                logger.info(f'El audio {wav_audio_file} está en la carpeta de Datasets asociada')
-            if vad_model == VAD_Models.ORACLE.value:
+                logger.info(f'El audio {wav_audio_file} está en la carpeta de Datasets asociada')                
+            if vad_model == VADModels.ORACLE.value:
                 ###### SI ESTAMOS EN EL CASO --ORACLE_VAD--  ######
                 rttm_ref_filepath = os.path.join(args.reference_path, dataset_subfolder, rttm_filename)
                 if not os.path.exists(rttm_ref_filepath):
@@ -150,7 +136,7 @@ if __name__ == '__main__':
             else:
                 rttm_ref_filepath = None
             if rttm_ref_not_found:    
-                combined_models_subfolder_name=str(VAD_Models.MARBLE.value + '+' + args.speaker_model)
+                combined_models_subfolder_name=str(VADModels.MARBLE.value + '+' + args.speaker_model)
             else:    
                 combined_models_subfolder_name=str(vad_model + '+' + args.speaker_model)
             print(f'La carpeta de salida del rttm de hipótesis será {combined_models_subfolder_name} para el audio {wav_audio_file}')
@@ -177,30 +163,32 @@ if __name__ == '__main__':
                 print(f"Preparado el archivo de manifiesto en {input_manifest_json_path}")
                 logger.info(f"Preparado el archivo de manifiesto en {input_manifest_json_path}")
 
-            if not os.path.exists(os.path.join(datasets_path, CONFIG_GENERAL_DIAR_INF_FILENAME)):
-                print("Descargamos el archivo YAM para la configuración general de Inferencia de Diarización de Nemo")
-                logger.info("Descargamos el archivo YAM para la configuración general de Inferencia de Diarización de Nemo")
-                wget.download(CONFIG_GENERAL_DIAR_INF_URL, os.path.join(datasets_path, CONFIG_GENERAL_DIAR_INF_FILENAME))
-            config = OmegaConf.load(os.path.join(datasets_path, CONFIG_GENERAL_DIAR_INF_FILENAME))
+            config_diar_inf_filename = args.msdd_model + '.yaml'
+            if not os.path.exists(os.path.join(datasets_path, config_diar_inf_filename)):
+                print("Descargamos el archivo YAML para la configuración de Inferencia de Diarización de Nemo")
+                logger.info("Descargamos el archivo YAML para la configuración de Inferencia de Diarización de Nemo")
+                wget.download(CONFIG_DIAR_INF_URL + config_diar_inf_filename, os.path.join(datasets_path, config_diar_inf_filename))
+            config = OmegaConf.load(os.path.join(datasets_path, config_diar_inf_filename))
             #print(OmegaConf.to_yaml(config))  ## Descomentar si queremos ver la config. por defecto.
             print(f"El tipo de dispositivo de proceso es {device.type}")
             logger.info(f"El tipo de dispositivo de proceso es {device.type}")
             if device.type == 'cpu':
                 config.num_workers = 0 # Avoiding error with SpeakerLabel                
-            
+            config.verbose = False
+            config.diarizer.msdd_model.model_path = args.msdd_model
             config.diarizer.manifest_filepath = os.path.join(rttm_hyp_model_path, input_manifest_json_path)
             config.diarizer.out_dir = rttm_hyp_model_path # Directory to store intermediate files and prediction outputs
-            config.diarizer.speaker_embeddings.model_path = pretrained_speaker_model
-            config.diarizer.speaker_embeddings.parameters.window_length_in_sec = [1.0] 
-            config.diarizer.speaker_embeddings.parameters.shift_length_in_sec = [0.5] 
-            config.diarizer.speaker_embeddings.parameters.multiscale_weights= [1]             
+            config.diarizer.speaker_embeddings.model_path = args.speaker_model
+            config.diarizer.speaker_embeddings.parameters.window_length_in_sec = window_lengths
+            config.diarizer.speaker_embeddings.parameters.shift_length_in_sec = window_steps
+            config.diarizer.speaker_embeddings.parameters.multiscale_weights= window_weights
             config.diarizer.clustering.parameters.oracle_num_speakers = provide_num_speakers
                         
-            config.diarizer.oracle_vad = vad_model==VAD_Models.ORACLE.value and not rttm_ref_not_found #----> ORACLE VAD o MARBLENET VAD
-            if vad_model!=VAD_Models.ORACLE.value:
+            config.diarizer.oracle_vad = vad_model==VADModels.ORACLE.value and not rttm_ref_not_found #----> ORACLE VAD o MARBLENET VAD
+            if vad_model != VADModels.ORACLE.value:
                 config.diarizer.vad.model_path = vad_model
-            if vad_model==VAD_Models.ORACLE.value and rttm_ref_not_found:
-                config.diarizer.vad.model_path = VAD_Models.MARBLE.value # --> MARBLENET VAD asignado si no es posible ORACLE VAD
+            if vad_model == VADModels.ORACLE.value and rttm_ref_not_found:
+                config.diarizer.vad.model_path = VADModels.MARBLE.value # --> MARBLENET VAD asignado si no es posible ORACLE VAD
                 ## Posibles parámetros de configuración extra de un VAD que no sea Oracle.
                 #config.diarizer.vad.parameters.onset = 0.8
                 #config.diarizer.vad.parameters.offset = 0.6
@@ -210,10 +198,8 @@ if __name__ == '__main__':
 
             start_time = time.time()
             ##### INICIO DE LA DIARIZACION ###########
-            oracle_vad_clusdiar_model = ClusteringDiarizer(cfg=config)
-            
-            oracle_vad_clusdiar_model.diarize()            
-                
+            oracle_vad_clusdiar_model = ClusteringDiarizer(cfg=config)            
+            oracle_vad_clusdiar_model.diarize()                            
             ##### FIN DE LA DIARIZACION ###########
             diarization_time = time.time() - start_time            
             print(f'Tiempo de diarización realizada con NeMo de {wav_file_path} : {diarization_time} segundos')            
@@ -231,8 +217,7 @@ if __name__ == '__main__':
             print(f'FIN de la diarización por NeMo del audio {wav_file_path}.')       # Imprime a stdout el fin de la diarización de uno de los archivos       
             logger.info(f'FIN de la diarización por NeMo del audio {wav_file_path}.') # Imprime al archivo de logging el fin de la diarización de uno de los archivos               
             save_status(f'FIN de la diarizacion por NeMo del audio {wav_file_path}.') # Imprime al archivo de estado el fin de la diarización de uno de los archivos, 
-                        # este archivo es la manera que tiene el gestor de contenedores de saber que ha terminado la ejecución del script.  
-                        
+            # Este archivo es la manera que tiene el gestor de contenedores de saber que ha terminado la ejecución del script.                          
     logger.info(f'NeMo {combined_models_subfolder_name} FIN\n')
     print(f'NeMo {combined_models_subfolder_name} FIN\n')
     save_status(FIN)   
