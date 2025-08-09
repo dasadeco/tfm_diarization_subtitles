@@ -102,7 +102,8 @@ if __name__ == '__main__':
                                   clustering="AgglomerativeClustering" , 
                                   use_auth_token=args.huggingface_token).instantiate(pipeline_params_dict) \
                 .to(device=device)        
-                                
+                
+    combined_models_subfolder_name = str('Pyannote__' + args.segmentation_model + '+' + args.speaker_model).replace('/', '-') 
     if os.path.isdir(args.volume_path):
         tuplas = _buscar_by_extension_in_dataset(datasets_path, ".wav") 
         if os.path.exists(os.path.join(args.volume_path, "rttm", EXECUTION_TIME_FILE)):
@@ -134,7 +135,7 @@ if __name__ == '__main__':
                 
                 logger.info(f'INICIO de la escritura de la diarización del audio {wav_file_path} ...')
                 print(f'INICIO de la escritura de la diarización del audio {wav_file_path} ...')
-                rttm_hyp_model_path = os.path.join(args.volume_path, "rttm", dataset_subfolder, pipeline_version)
+                rttm_hyp_model_path = os.path.join(args.volume_path, "rttm", dataset_subfolder, combined_models_subfolder_name)
                 if not os.path.exists(rttm_hyp_model_path):
                     os.makedirs(rttm_hyp_model_path, exist_ok=True)
                     logger.info(f'Se crea la carpeta de salida para los RTTM: {rttm_hyp_model_path}.')
@@ -145,7 +146,7 @@ if __name__ == '__main__':
                 with open( os.path.join(args.volume_path, "rttm", EXECUTION_TIME_FILE), "a", encoding="utf-8") as execution_time_file:                       
                     audio_Segment = AudioSegment.from_file(wav_file_path)            
                     print(f"Duración del audio: {audio_Segment.duration_seconds}")                                          
-                    execution_time_file.write(f"{rttm_filename} {pipeline_version} {dataset_subfolder} {diarization_time} {audio_Segment.duration_seconds}\n")
+                    execution_time_file.write(f"{rttm_filename} {combined_models_subfolder_name} {dataset_subfolder} {diarization_time} {audio_Segment.duration_seconds}\n")
                     
                 for turn, _, speaker in diarization.itertracks(yield_label=True):                
                     logger.debug(f'start={turn.start:.1f}s stop={turn.end:.1f}s speaker_{speaker}')

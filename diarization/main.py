@@ -90,5 +90,5 @@ if __name__ == '__main__':
     if args.metrics_list is not None and len(args.metrics_list)>0:
         metrics_calc = MetricsCalculator(hypotheses_path=args.hypotheses_path, reference_path = args.reference_path, metrics_list = args.metrics_list, 
                         collar=args.collar, skip_overlap = args.skip_overlap)
-        metrics_calc.start_calc_metrics()            
+        metrics_calc.calculate_and_write_metrics()            
     exit(0)

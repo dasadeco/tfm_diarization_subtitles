@@ -156,9 +156,9 @@ if __name__ == '__main__':
             else:
                 rttm_ref_filepath = None
             if rttm_ref_not_found:    
-                combined_models_subfolder_name=str(VADModels.MARBLE.value + '+' + args.speaker_model)
+                combined_models_subfolder_name=str('NeMo__' + VADModels.MARBLE.value + '+' + args.speaker_model)
             else:    
-                combined_models_subfolder_name=str(vad_model + '+' + args.speaker_model)
+                combined_models_subfolder_name=str('NeMo__' + vad_model + '+' + args.speaker_model)
             print(f'La carpeta de salida del rttm de hipótesis será {combined_models_subfolder_name} para el audio {wav_audio_file}')
             logger.info(f'La carpeta de salida del rttm de hipótesis será {combined_models_subfolder_name} para el audio {wav_audio_file}')
             rttm_hyp_model_path = os.path.join(args.volume_path, "rttm", dataset_subfolder, combined_models_subfolder_name)
