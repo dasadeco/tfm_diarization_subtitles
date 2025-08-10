@@ -16,7 +16,6 @@ EXECUTION_TIME_FILE = "NEMO_exec_time.txt"
 PATH_BASE_DATASETS = "datasets"
 FIN="FIN"
 
-#CONFIG_GENERAL_DIAR_INF_FILENAME = "diar_infer_general.yaml"
 CONFIG_DIAR_INF_URL = "https://raw.githubusercontent.com/NVIDIA/NeMo/main/examples/speaker_tasks/diarization/conf/inference/"
 #CONFIG_GENERAL_DIAR_INF_URL = CONFIG_DIAR_INF_URL + CONFIG_GENERAL_DIAR_INF_FILENAME
 
@@ -77,10 +76,10 @@ if __name__ == '__main__':
     logger.info(f'START iniciando el pipeline de NeMo')        
     if not args.reference_path or not os.path.exists(args.reference_path):
         args.reference_path = '/data/rttm_ref' 
-        if not os.path.exists(args.reference_path) and vad_model==VADModels.ORACLE.value:       
+        if not os.path.exists(args.reference_path) and vad_model==VADModels.ORACLE.model:       
             print("No hay carpeta de archivos RTTM de referencia con VAD_MODEL seleccionado!")
             logger.warning(f"No hay carpeta de archivos RTTM de referencia con VAD_MODEL seleccionado!")
-            vad_model= VADModels.MARBLE.value            
+            vad_model= VADModels.MARBLE.model            
      
     provide_num_speakers = False
     if args.num_speakers is not None:
@@ -143,7 +142,7 @@ if __name__ == '__main__':
                 wav_file_path = os.path.join(datasets_path, dataset_subfolder, wav_audio_file)
                 print(f'El audio {wav_audio_file} está en la carpeta de Datasets asociada')
                 logger.info(f'El audio {wav_audio_file} está en la carpeta de Datasets asociada')                
-            if vad_model == VADModels.ORACLE.value:
+            if vad_model == VADModels.ORACLE.model:
                 ###### SI ESTAMOS EN EL CASO --ORACLE_VAD--  ######
                 rttm_ref_filepath = os.path.join(args.reference_path, dataset_subfolder, rttm_filename)
                 if not os.path.exists(rttm_ref_filepath):
@@ -156,7 +155,7 @@ if __name__ == '__main__':
             else:
                 rttm_ref_filepath = None
             if rttm_ref_not_found:    
-                combined_models_subfolder_name=str('NeMo__' + VADModels.MARBLE.value + '+' + args.speaker_model)
+                combined_models_subfolder_name=str('NeMo__' + VADModels.MARBLE.model + '+' + args.speaker_model)
             else:    
                 combined_models_subfolder_name=str('NeMo__' + vad_model + '+' + args.speaker_model)
             print(f'La carpeta de salida del rttm de hipótesis será {combined_models_subfolder_name} para el audio {wav_audio_file}')
@@ -186,11 +185,11 @@ if __name__ == '__main__':
             config.diarizer.manifest_filepath = os.path.join(rttm_hyp_model_path, input_manifest_json_path)
             config.diarizer.out_dir = rttm_hyp_model_path # Directory to store intermediate files and prediction outputs
                         
-            config.diarizer.oracle_vad = vad_model==VADModels.ORACLE.value and not rttm_ref_not_found #----> ORACLE VAD o MARBLENET VAD
-            if vad_model != VADModels.ORACLE.value:
+            config.diarizer.oracle_vad = vad_model==VADModels.ORACLE.model and not rttm_ref_not_found #----> ORACLE VAD o MARBLENET VAD
+            if vad_model != VADModels.ORACLE.model:
                 config.diarizer.vad.model_path = vad_model
-            if vad_model == VADModels.ORACLE.value and rttm_ref_not_found:
-                config.diarizer.vad.model_path = VADModels.MARBLE.value # --> MARBLENET VAD asignado si no es posible ORACLE VAD
+            if vad_model == VADModels.ORACLE.model and rttm_ref_not_found:
+                config.diarizer.vad.model_path = VADModels.MARBLE.model # --> MARBLENET VAD asignado si no es posible ORACLE VAD
                 ## Posibles parámetros de configuración extra de un VAD que no sea Oracle.
                 #config.diarizer.vad.parameters.onset = 0.8
                 #config.diarizer.vad.parameters.offset = 0.6

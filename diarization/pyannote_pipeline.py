@@ -51,7 +51,7 @@ if __name__ == '__main__':
     parser.add_argument('-mdo', '--min_duration_off', type=float,  default=0.0, help="Tiempo mínimo que tienen que alcanzar los silencios o se eliminan")
     parser.add_argument('-mtc', '--min_cluster_size', type=int,  default=12, help="Tamaño mínimo de clusters,si no se alcanza en alguno, se fusiona con el más similar")
     parser.add_argument('-mec', '--method_cluster', type=str, default='centroid', help="Método utilizado en el clustering aglomerativo")
-    parser.add_argument('-thr', '--threshold_cluster', type=float, default=0.7045654963945799, help="Método utilizado en el clustering aglomerativo")
+    parser.add_argument('-thr', '--threshold_cluster', type=float, default=0.7045654963945799, help="Umbral utilizado en el clustering aglomerativo")
     parser.add_argument('-ns', '--num_speakers', default=None,  type=int, help='Indicamos el numero de speakers (pero tendría que ser el mismo número en todos los archivos de esta pasada)')
     parser.add_argument('-vp', '--volume_path', type=str, help='Carpeta con los archivos de audio(.wav)')
     args = parser.parse_args()  
@@ -96,7 +96,7 @@ if __name__ == '__main__':
             "threshold": args.threshold_cluster
         }
     }
-    if args.segmentation_model == "pyannote/segmentation":
+    if args.segmentation_model == "pyannote/segmentation": ##Pipeline 2.1
         pipeline_params_dict["segmentation"]["threshold"] = 0.5
     pipeline = SpeakerDiarization(embedding=embedding_model, segmentation=segmentation_model, 
                                   clustering="AgglomerativeClustering" , 

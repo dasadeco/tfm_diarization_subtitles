@@ -1,15 +1,35 @@
-from enum import Enum
+from enum import Enum, auto
 
-class SegmentationModels(Enum):
-    v2_1, segmentation2_1 = 'pyannote/segmentation', 'pyannote/segmentation'
-    v3_0, segmentation3_0 = 'pyannote/segmentation-3.0', 'pyannote/segmentation-3.0'
-    diarizers, callhome, callhome_spain = 'diarizers-community/speaker-segmentation-fine-tuned-callhome-spa', \
-        'diarizers-community/speaker-segmentation-fine-tuned-callhome-spa', 'diarizers-community/speaker-segmentation-fine-tuned-callhome-spa'
+class MyEnum(Enum):  # Para permitir alias en Enums
+    def __new__(cls, value, model):
+       obj = object.__new__(cls)
+       obj._value_ = value
+       obj.model = model
+       return obj 
+   
+class SegmentationModels(MyEnum):
+    v2_1 = (auto(), 'pyannote/segmentation')
+    segmentation2_1 = (auto(), 'pyannote/segmentation')
+    
+    v3_0 = (auto(), 'pyannote/segmentation-3.0')
+    segmentation3_0 = (auto(), 'pyannote/segmentation-3.0')
+    
+    diarizers = (auto(), 'diarizers-community/speaker-segmentation-fine-tuned-callhome-spa')
+    callhome = (auto(), 'diarizers-community/speaker-segmentation-fine-tuned-callhome-spa')
+    callhome_spain = (auto(), 'diarizers-community/speaker-segmentation-fine-tuned-callhome-spa')
+         
 
-class SpeakerModels(Enum):
-    PYANNOTE = 'pyannote/embedding'    
-    WESPEAKER, RESNET, RESNET34 = 'pyannote/wespeaker-voxceleb-resnet34-LM', 'pyannote/wespeaker-voxceleb-resnet34-LM', 'pyannote/wespeaker-voxceleb-resnet34-LM'
-    ECAPA, SPKREC, ECAPA_VOXCELEB = "speechbrain/spkrec-ecapa-voxceleb", "speechbrain/spkrec-ecapa-voxceleb", "speechbrain/spkrec-ecapa-voxceleb"
+class SpeakerModels(MyEnum):
+    PYANNOTE = (auto(), 'pyannote/embedding')
+    
+    WESPEAKER = (auto(), 'pyannote/wespeaker-voxceleb-resnet34-LM')
+    RESNET = (auto(), 'pyannote/wespeaker-voxceleb-resnet34-LM')
+    RESNET34 = (auto(), 'pyannote/wespeaker-voxceleb-resnet34-LM')
+    
+    ECAPA = (auto(), "speechbrain/spkrec-ecapa-voxceleb")
+    SPKREC = (auto(), "speechbrain/spkrec-ecapa-voxceleb")
+    ECAPA_VOXCELEB = (auto(), "speechbrain/spkrec-ecapa-voxceleb")
+    
     
 class ClusteringMethods(Enum):   
     centroid = 'centroid'

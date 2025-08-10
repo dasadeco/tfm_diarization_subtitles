@@ -4,12 +4,17 @@ LABEL author="dasadeco (aka Daniel Sáenz de Cosca)"
 
 RUN apt-get update && apt-get install -y libsndfile1 ffmpeg
 RUN pip3 install pyannote.audio    
+RUN pip3 install transformers==4.51.1
 RUN pip3 install argparse==1.4.0
 RUN pip3 install pydub
+
 
 WORKDIR /
 COPY diarization/pyannote_pipeline.py /
 COPY diarization/keep_alive.py /
+COPY diarization/diarizers/models/model.py /diarizers/models/
+COPY diarization/diarizers/models/pyannet.py /diarizers/models/
+
 RUN mkdir -p /media
 RUN chmod 777 /media
 

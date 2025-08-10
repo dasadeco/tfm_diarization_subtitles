@@ -1,16 +1,49 @@
-from enum import Enum
+from enum import Enum, auto
 
-class VADModels(Enum):
-    ORACLE = 'oracle_vad'
-    MARBLE, MARBLENET, MULTILINGUAL = 'vad_multilingual_marblenet', 'vad_multilingual_marblenet', 'vad_multilingual_marblenet'
+class MyEnum(Enum):
+    def __new__(cls, value, model):
+       obj = object.__new__(cls)
+       obj._value_ = value
+       obj.model = model
+       return obj 
 
-class SpeakerModels(Enum):
-    TITANET_LARGE, LARGE, TITANET_L, TITANET = "titanet_large","titanet_large", "titanet_large","titanet_large"  
-    TITANET_SMALL, SMALL, TITANET_S = "titanet_small", "titanet_small", "titanet_small"
-    ECAPA_TDNN, ECAPA, TDNN = "ecapa_tdnn", "ecapa_tdnn", "ecapa_tdnn"
-    VERIFICATION, SPEAKERVERIFICATION, SPEAKER_VERIFICATION, SPEAKERNET = "speakerverification_speakernet", "speakerverification_speakernet", "speakerverification_speakernet", "speakerverification_speakernet"
+class VADModels(MyEnum):
+    ORACLE = (auto(), 'oracle_vad')
+    
+    MARBLE = (auto(), 'vad_multilingual_marblenet') 
+    MARBLENET = (auto(), 'vad_multilingual_marblenet')
+    MULTILINGUAL = (auto(),'vad_multilingual_marblenet')
+  
+    
+class SpeakerModels(MyEnum):
+    TITANET_LARGE = (auto(), "titanet_large")
+    LARGE = (auto(), "titanet_large")
+    TITANET_L = (auto(), "titanet_large")
+    TITANET = (auto(), "titanet_large")
+    
+    TITANET_SMALL = (auto(), "titanet_small")
+    SMALL = (auto(), "titanet_small")
+    TITANET_S = (auto(), "titanet_small")
+    
+    ECAPA_TDNN = (auto(), "ecapa_tdnn")
+    ECAPA = (auto(), "ecapa_tdnn")
+    TDNN = (auto(), "ecapa_tdnn")
+    
+    VERIFICATION = (auto(), "speakerverification_speakernet")
+    SPEAKERVERIFICATION = (auto(), "speakerverification_speakernet")
+    SPEAKER_VERIFICATION = (auto(), "speakerverification_speakernet")
+    SPEAKERNET = (auto(), "speakerverification_speakernet")
+ 
      
-class MSDDModels(Enum):
-    GENERAL, INFER_GENERAL, DIAR_INFER_GENERAL  = 'diar_infer_general', 'diar_infer_general', 'diar_infer_general'
-    MEETING, INFER_MEETING, DIAR_INFER_MEETING  = 'diar_infer_meeting', 'diar_infer_meeting', 'diar_infer_meeting'
-    TELEPHONIC, INFER_TELEPHONIC, DIAR_INFER_TELEPHONIC  = 'diar_infer_telephonic', 'diar_infer_telephonic', 'diar_infer_telephonic'
+class MSDDModels(MyEnum):
+    GENERAL = (auto(), 'diar_infer_general')
+    INFER_GENERAL = (auto(), 'diar_infer_general')
+    DIAR_INFER_GENERAL  = (auto(), 'diar_infer_general')
+    
+    MEETING = (auto(), 'diar_infer_meeting')
+    INFER_MEETING = (auto(), 'diar_infer_meeting')
+    DIAR_INFER_MEETING  = (auto(), 'diar_infer_meeting')
+    
+    TELEPHONIC = (auto(), 'diar_infer_telephonic')
+    INFER_TELEPHONIC = (auto(), 'diar_infer_telephonic')
+    DIAR_INFER_TELEPHONIC  = (auto(), 'diar_infer_telephonic')

@@ -8,12 +8,16 @@ from datetime import datetime
 from enum import Enum
 from docker.models.containers import Container
 
+from pyannote_import import SpeakerModels as SpeakerModelPyannote, SegmentationModels, ClusteringMethods
+from nemo_import import SpeakerModels as SpeakerModelNemo, VADModels, MSDDModels
+
 STATUS_FILE = 'status.txt'
 FIN="FIN"
 
 class DockerImages(Enum):
     pyannote_pipeline ='dasaenzd/pyannote_pipeline:latest'
     nemo_pipeline = 'dasaenzd/nemo_pipeline:latest'
+    speechbrain_pipeline = 'dasaenzd/speechbrain_pipeline:latest'
 
 class DockerDiarizationManager: 
     
@@ -28,13 +32,12 @@ class DockerDiarizationManager:
         logs_path = os.path.join(self.host_volume_path, "logs")
         if not os.path.exists(logs_path):
             os.makedirs( logs_path, exist_ok=True)        
-        
         logging.basicConfig(filename=f'{logs_path}/docker_manager_{datetime.now().strftime("%Y%m%d%H%M%S")}.log', force=True,
                             encoding='utf-8', level=logging.DEBUG, format='%(asctime)s %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
         self.logger = logging.getLogger(__name__)
-        self.logger.info("Inicializando el MANAGER DE DOCKER para  Diarización !!!!")        
+        self.logger.info("Inicializando el MANAGER DE DOCKER para Diarización !!!!")        
         
-        self.client = docker.from_env()                
+        self.client = docker.from_env()  # Docker Engine o Docker Desktop necesitan estar arrancados              
         self.container_volume_path = container_volume_path
         self.containers = {}   # Diccionario de contenedores de los que este manager se va a hacer cargo
         binding = {}
@@ -141,21 +144,39 @@ class DockerDiarizationManager:
                 if 'pipeline_version' in params and params['pipeline_version'] is not None:
                     cmd_list.extend([ "--pipeline_version", params['pipeline_version'] ])
                 if 'huggingface_token' in params and params['huggingface_token'] is not None:
-                    cmd_list.extend([ "--huggingface_token", params['huggingface_token'] ])                    
-            elif container_name == DockerImages.nemo_pipeline.name:                       
+                    cmd_list.extend([ "--huggingface_token", params['huggingface_token'] ])  
+                if 'segmentation_model' in params and params['segmentation_model'] is not None:                    
+                    cmd_list.extend([ "--segmentation_model", params['segmentation_model'] ]) 
+                if 'speaker_model_pyannote' in params and params['speaker_model_pyannote'] is not None:
+                    cmd_list.extend([ "--speaker_model", params['speaker_model_pyannote'] ])
+                if 'min_cluster_size' in params and params['min_cluster_size'] is not None:
+                    cmd_list.extend([ "--min_cluster_size", params['min_cluster_size'] ])
+                if 'method_cluster' in params and params['method_cluster'] is not None:
+                    cmd_list.extend([ "--method_cluster", params['method_cluster'] ])
+                if 'threshold_cluster' in params and params['threshold_cluster'] is not None:
+                    cmd_list.extend([ "--threshold_cluster", params['threshold_cluster'] ])                    
+                                       
+            elif container_name == DockerImages.nemo_pipeline.name:
                 if 'vad_model' in params and params['vad_model'] is not None:
                     cmd_list.extend([ "--vad_model", params['vad_model'] ])
-                if 'speaker_model' in params and params['speaker_model'] is not None:
-                    cmd_list.extend([ "--speaker_model", params['speaker_model'] ])
-                if 'reference_path' in params and params['reference_path'] is not None:                
+                if 'speaker_model_nemo' in params and params['speaker_model_nemo'] is not None:
+                    cmd_list.extend([ "--speaker_model", params['speaker_model_nemo'] ])
+                if 'reference_path' in params and params['reference_path'] is not None:
                     cmd_list.extend([ "--reference_path", params['reference_path'] ])
-                if 'num_speakers' in params and params['num_speakers'] is not None:
-                    cmd_list.extend([ "--num_speakers", params['num_speakers'] ])                                        
+                if 'msdd_model' in params and params['msdd_model'] is not None:
+                    cmd_list.extend([ "--msdd_model", params['msdd_model'] ])
+                if 'window_lengths' in params and params['window_lengths'] is not None:
+                    cmd_list.extend([ "--window_lengths", params['window_lengths'] ])                    
+
             else:
                 print(f"No se ha podido preparar un comando de ejecución al contenedor {container_name}")
                 self.logger.info(f"No se ha podido preparar un comando de ejecución al contenedor {container_name}")
                 exit(1)
                 
+            if 'min_duration_off' in params and params['min_duration_off'] is not None:
+                cmd_list.extend([ "--min_duration_off", params['min_duration_off'] ])
+            if 'num_speakers' in params and params['num_speakers'] is not None:
+                cmd_list.extend([ "--num_speakers", params['num_speakers'] ])
             exec_command = self.client.api.exec_create(self.containers[container_name].id, cmd_list)    
             
             self.client.api.exec_start(exec_command['Id'], detach=False)
@@ -200,37 +221,127 @@ class DockerDiarizationManager:
         file.close()                                
             
 if __name__ == '__main__':
+    speakerModels = list(SpeakerModelPyannote.__members__.values())
+    speakerModels.extend(list(SpeakerModelNemo.__members__.values()))
+    
     parser = argparse.ArgumentParser(description="Docker Diarization Manager")
     parser.add_argument('-hvp', '--host_volume_path', type=str, default='E:\\Desarrollo\\TFM\\data\\media', help='Path de la maquina host ( P. ej. mi Windows 10)')        
     parser.add_argument('-cvp', '--container_volume_path', type=str, default='/media', help='Path en el contenedor donde se guardan los archivos wav')
-    parser.add_argument('-img', '--image_name', type=str, help='Nombre de la imagen docker')        
-    parser.add_argument('-pm', '--pipeline_version', type=str, help='Versión de la Pipeline Pyannote')
-    parser.add_argument('-hft', '--huggingface_token', type=str, help='Token de Huggingface')
-    parser.add_argument('-vad', '--vad_model', type=str, help='Indicamos el nombre del modelo VAD a utilizar')
-    parser.add_argument('-sm', '--speaker_model', type=str, help='Indicamos el nombre del modelo para obtener embeddings a utilizar')
-    parser.add_argument('-rp', '--reference_path', type=str, help='Ruta de la carpeta con archivos rttm de referencia si disponemos de ellos y se selecciona `oracle_vad`')
-    parser.add_argument('-ns', '--num_speakers', default=None,  type=int, help='Indicamos el numero de speakers (pero tendría que ser el mismo número en todos los archivos)')
+    parser.add_argument('-img', '--image_name', type=str, help='Nombre de la imagen docker de Pyannote o de NeMo')        
+    parser.add_argument('-pv', '--pipeline_version', type=str, help='Versión de la Pipeline Pyannote, (sólo para efecto informativo en los logs, debe concordar con el modelo de segmentación y de embedding)')
+    parser.add_argument('-hft', '--huggingface_token', type=str, help='Token de Huggingface para Pyannote')
+    parser.add_argument('-vad', '--vad_model', type=str, help='Indicamos el nombre del modelo VAD a utilizar para NeMo')
+    parser.add_argument('-sem', '--segmentation_model', type=str, help="Modelo de segmentacion para Pyannote")
+    parser.add_argument('-sm', '--speaker_model', help='Indicamos el nombre del modelo para obtener embeddings a utilizar para Pyannote o para NeMo')
+    parser.add_argument('-mdo', '--min_duration_off', type=float, help="Tiempo mínimo que tienen que alcanzar los silencios o se eliminan, para Pyannote o para NeMo")    
+    parser.add_argument('-mtc', '--min_cluster_size', type=int, help="Tamaño mínimo de clusters,si no se alcanza en alguno, se fusiona con el más similar, para Pyannote")
+    parser.add_argument('-mec', '--method_cluster', type=str, help="Método utilizado en el clustering aglomerativo para Pyannote")
+    parser.add_argument('-thr', '--threshold_cluster', type=float, help="Método utilizado en el clustering aglomerativo para Pyannote")
+    parser.add_argument('-ns', '--num_speakers', default=None, type=int, help='Indicamos el numero de speakers (pero tendría que ser el mismo número en todos los archivos tanto para Pyannote como para NeMo)')    
+    parser.add_argument('-mm', '--msdd_model', type=str, help='Indicamos el nombre del modelo Multiescala Diarization Decoder para NeMo')
+    parser.add_argument('-wl', '--window_lengths', type=str, help='Lista de longitudes de ventana para el modelo Multiscale Diarization Decoder para NeMo')    
+    parser.add_argument('-rp', '--reference_path', type=str, help='Ruta de la carpeta con archivos rttm de referencia si disponemos de ellos y se selecciona `oracle_vad` para NeMo')
+    
     args = parser.parse_args()
 
+    images_name_list = []
+    if args.image_name is None:      
+            images_name_list.append(DockerImages.nemo_pipeline.value)
+            images_name_list.append(DockerImages.pyannote_pipeline.value)            
+    elif args.image_name.lower() in [di.name for di in DockerImages.__members__.values()]:
+            images_name_list.append(DockerImages._member_map_[args.image_name.lower()].value)
+    elif args.image_name.lower() in [di.value for di in DockerImages.__members__.values()]:
+            images_name_list.append(args.image_name.lower())                            
+    else:
+        for di in DockerImages.__members__.values():
+            if di.name.find( args.image_name.lower()) > -1:
+                 images_name_list.append(di.value)
+    container_name = None                 
+    if len(images_name_list) == 1:
+        container_name =  images_name_list[0].split('/')[1].split(':')[0]             
     dockerManager = DockerDiarizationManager(host_volume_path=args.host_volume_path, container_volume_path=args.container_volume_path, 
-                                             image_name_list=[args.image_name]) 
-    if args.image_name is not None:   
-        container_name =  args.image_name.split('/')[1].split(':')[0]                     
-        params = {}
-        if args.pipeline_version is not None:
-            params['pipeline_version'] = args.pipeline_version
-        if args.huggingface_token is not None:
-            params['huggingface_token'] = args.huggingface_token
-        if args.vad_model is not None:
-            params['vad_model'] = args.vad_model
-        if args.speaker_model is not None:
-            params['speaker_model'] = args.speaker_model
-        if args.reference_path is not None:
-            params['reference_path'] = args.reference_path
-        if args.num_speakers is not None:
-            if type(args.num_speakers) != int:
-                print("Número de speakers debe ser un entero!")
-            else:    
-                params['num_speakers'] = str(args.num_speakers)
+                                             image_name_list=[images_name_list])                     
+    params = {}
+    if args.pipeline_version is not None: #Pyannote
+        params['pipeline_version'] = args.pipeline_version
+        
+    if args.huggingface_token is not None: #Pyannote
+        params['huggingface_token'] = args.huggingface_token
+        
+    if args.vad_model is not None:  #Nemo
+        if args.vad_model.upper() in [vm.name for vm in VADModels.__members__.values()]:
+            params['vad_model'] = VADModels._member_map_[args.vad_model.upper()].model
+        elif args.vad_model.lower() in [vm.model for vm in VADModels.__members__.values()]:
+            params['vad_model'] = args.vad_model.lower()     
+        
+    if args.segmentation_model is not None: #Pyannote
+        if args.segmentation_model.lower() in [sm.name for sm in SegmentationModels.__members__.values()]:
+            params['segmentation_model'] = SegmentationModels._member_map_[args.segmentation_model.lower()].model
+        elif args.segmentation_model.lower() in [sm.model for sm in SegmentationModels.__members__.values()]:
+            params['segmentation_model'] = args.segmentation_model.lower()     
+        else:
+            for sm in SegmentationModels.__members__.values():
+                if args.segmentation_model.lower() == sm.model.split('/')[1]:
+                    params['segmentation_model'] = args.segmentation_model.lower()
+        
+    if args.speaker_model is not None: #Ambos
+        speak_models = args.speaker_model.split(',')
+        for speak_model in speak_models:
+            if speak_model.upper() in [sp.name for sp in SpeakerModelPyannote.__members__.values()]:
+                params['speaker_model_pyannote'] = SpeakerModelPyannote._member_map_[speak_model.upper()].model
+            elif speak_model.upper() in [sp.name for sp in SpeakerModelNemo.__members__.values()]:
+                params['speaker_model_nemo'] = SpeakerModelNemo._member_map_[speak_model.upper()].model
+            elif speak_model.lower() in [sp.model for sp in SpeakerModelPyannote.__members__.values()]:
+                    params['speaker_model_pyannote'] = speak_model.lower()
+            elif speak_model.lower() in [sp.model for sp in SpeakerModelNemo.__members__.values()]:
+                params['speaker_model_nemo'] = speak_model.lower()
+            else:
+                for sp in SpeakerModelPyannote.__members__.values():
+                    if speak_model.lower()==sp.model.split('/')[1]:
+                        params['speaker_model_pyannote'] =sp.model
+                    
+    if args.min_duration_off is not None:  #Ambos
+        if type(args.min_duration_off) != float:
+            print("Duración mínima debe ser un real!")
+        else:
+            params['min_duration_off'] = args.min_duration_off            
+    if args.min_cluster_size is not None: #Pyannote
+        if type(args.min_cluster_size) != int:
+            print("Mínimo tamaño de cluster debe ser un entero!")
+        else:
+            params['min_cluster_size'] = str(args.min_cluster_size)
+    if args.method_cluster is not None:  #Pyannote
+        if args.method_cluster.lower() in [cm.value for cm in ClusteringMethods.__members__.values()]:
+            params['method_cluster'] = args.method_cluster.lower()
+        
+    if args.threshold_cluster is not None: #Pyannote
+        if type(args.threshold_cluster) != float:
+            print("Umbral de clustering debe ser un real!")
+        else:
+            params['threshold_cluster'] = args.threshold_cluster
+    if args.num_speakers is not None:  #Ambos
+        if type(args.num_speakers) != int:
+            print("Número de speakers debe ser un entero!")
+        else:
+            params['num_speakers'] = str(args.num_speakers)
+            
+    if args.msdd_model is not None:    #Nemo
+        if args.msdd_model.upper() in [msd.name for msd in MSDDModels.__members__.values()]:
+            params['msdd_model'] = MSDDModels._member_map_[args.msdd_model.upper()].model
+        else:    
+            msd_set = {msd.model for msd in MSDDModels.__members__.values() if msd.model.find(args.msdd_model.lower()) > -1}
+            if len(msd_set) == 1:
+                params['msdd_model'] = list(msd_set)[0]
+        
+    if args.reference_path is not None: #Nemo
+        params['reference_path'] = args.reference_path
+
+    if args.window_lengths is not None: #Nemo
+        params['window_lengths'] = [i.lstrip(' ').rstrip(' ') for i in args.window_lengths.lstrip('[').rstrip(']').split(',')]
+    
+    if container_name is not None: 
         dockerManager.execute_command(container_name, params)
+    else:
+        for container_name in dockerManager.containers.keys():
+            dockerManager.execute_command(container_name, params)
     exit(0)

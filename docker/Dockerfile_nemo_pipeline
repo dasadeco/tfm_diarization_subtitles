@@ -10,6 +10,7 @@ RUN pip3 install pydub
 
 WORKDIR /
 COPY diarization/nemo_pipeline.py /
+COPY diarization/nemo_import.py /
 COPY diarization/keep_alive.py /
 RUN mkdir -p /media
 RUN chmod 777 /media

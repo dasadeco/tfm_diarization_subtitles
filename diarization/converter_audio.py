@@ -100,9 +100,12 @@ class ConverterToAudio:
                     audio_subfolder = '.'                                      
                 audio_file_under = audio_file.replace(" ","_")
                 os.rename(os.path.join(self.audio_media_path, audio_subfolder, audio_file), os.path.join(self.audio_media_path, audio_subfolder, audio_file_under))    
+                if not os.path.exists(self.output_media_path):
+                    os.mkdir(self.output_media_path)
+                    self.logger.warning(f"Creamos el path de audio de salida: {str(self.output_media_path)} ")
                 if not os.path.exists(os.path.join(self.output_media_path, audio_subfolder)):
                     os.mkdir(os.path.join(self.output_media_path, audio_subfolder))
-                    self.logger.warning(f"Creamos el path de audio de entrada: {str(os.path.join(self.output_media_path, audio_subfolder))}, para el dataset {audio_subfolder}")            
+                    self.logger.warning(f"Creamos el path de audio de salida: {str(os.path.join(self.output_media_path, audio_subfolder))}, para el dataset {audio_subfolder}")            
                 shutil.copy2(os.path.join(self.audio_media_path, audio_subfolder, audio_file_under), os.path.join(self.output_media_path, audio_subfolder, audio_file_under))
                 
                 self.convert_stereo_to_mono(os.path.join(self.output_media_path, audio_subfolder, audio_file_under))                
