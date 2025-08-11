@@ -43,6 +43,7 @@ if __name__ == '__main__':
     parser.add_argument('-hp', '--hypotheses_path', type=str, help='Ruta de la carpeta con archivos rttm hipotesis.') 
     parser.add_argument('-rp', '--reference_path', type=str, help='Ruta de la carpeta con archivos rttm de referencia si disponemos de ellos (necesarios si se selecciona `oracle_vad` en la pipeline NeMo )')    
     parser.add_argument('-me', '--metrics_list', type=str, help='Lista de Metricas de Diarización a aplicar')
+    parser.add_argument('-out', '--out_met_filename', type=str, default='metrics', help='Nombre del archivo de salida de métricas sin extensión')    
     parser.add_argument('-co', '--collar', type=float, default=0.0, help='Collar (Umbral de tiempo que se concede al principio y al final de cada segmento)')
     parser.add_argument('-so', '--skip_overlap', type=bool, default=False, help='Si se ignora el habla solapada o no')    
         
@@ -163,7 +164,7 @@ if __name__ == '__main__':
     if args.metrics_list is not None and len(args.metrics_list)>0:
         if os.path.exists(args.hypotheses_path) and os.path.exists(args.reference_path):
             metrics_calc = MetricsCalculator(hypotheses_path=args.hypotheses_path, reference_path = args.reference_path, metrics_list = args.metrics_list, 
-                            collar=args.collar, skip_overlap = args.skip_overlap)
+                            out_met_filename=args.out_met_filename, collar=args.collar, skip_overlap = args.skip_overlap)
             metrics_calc.calculate_and_write_metrics()            
         else:
             print("No existe la carpeta de archivos RTTM de hipótesis o la carpeta de archivos de referencia. NO se pueden calcular las métricas.")        

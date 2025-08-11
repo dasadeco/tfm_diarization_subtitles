@@ -122,10 +122,11 @@ def _buscar_by_extension_in_dataset_2_niveles(path, extension):
 
 class MetricsCalculator():
         
-    def __init__(self, hypotheses_path, reference_path, metrics_list, collar, skip_overlap):
+    def __init__(self, hypotheses_path, reference_path, metrics_list, out_met_filename, collar, skip_overlap):
         self.hypotheses_path = hypotheses_path
         self.reference_path = reference_path
         self.metrics_list = metrics_list
+        self.out_met_filename = out_met_filename
         self.collar = collar
         self.skip_overlap = skip_overlap
         
@@ -248,7 +249,7 @@ class MetricsCalculator():
         metrics_path = os.path.join(self.hypotheses_path, os.path.pardir, "metrics")
         if not os.path.exists(metrics_path):
             os.makedirs( metrics_path, exist_ok=True )          
-        export_path = os.path.join(metrics_path, "metrics.xlsx")
+        export_path = os.path.join(metrics_path, self.out_met_filename + ".xlsx")
         metrics_df.to_excel(export_path,  index=False)
         wb = load_workbook(export_path)
         ws = wb["Sheet1"]   
@@ -293,13 +294,14 @@ if __name__ == '__main__':
     parser.add_argument('-hp', '--hypotheses_path', type=str, default='E:\Desarrollo\TFM\data\media\rttm', help='Carpeta con los archivos RTTM de hipotesis.')
     parser.add_argument('-rp', '--reference_path', type=str, default='E:\Desarrollo\TFM\subtitles\data\rttm_ref', help='Carpeta con los archivos RTTM de referencia.')
     parser.add_argument('-me', '--metrics_list', type=str, help='Lista de Metricas a aplicar')
+    parser.add_argument('-out', '--out_met_filename', type=str, default='metrics', help='Nombre del archivo de salida de métricas sin extensión')
     parser.add_argument('-co', '--collar', type=float, help='Collar (Umbral de holgura al principio  al final de cada segmento)')
     parser.add_argument('-so', '--skip_overlap', type=bool, default=False, help='Si se ignora el habla solapada o no')
     args = parser.parse_args()
             
     if os.path.exists(args.hypotheses_path) and os.path.exists(args.reference_path):
         metrics_calc = MetricsCalculator(hypotheses_path=args.hypotheses_path, reference_path=args.reference_path, metrics_list=args.metrics_list, 
-                        collar=args.collar, skip_overlap=args.skip_overlap)
+                            out_met_filename=args.out_met_filename, collar=args.collar, skip_overlap=args.skip_overlap)
         metrics_calc.calculate_and_write_metrics()
     else:
         print("No existe la carpeta de archivos RTTM de hipótesis o la carpeta de archivos de referencia. NO se pueden calcular las métricas.")
