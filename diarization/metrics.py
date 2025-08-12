@@ -291,8 +291,8 @@ class MetricsCalculator():
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Pyannote Metrics')
-    parser.add_argument('-hp', '--hypotheses_path', type=str, default='E:\Desarrollo\TFM\data\media\rttm', help='Carpeta con los archivos RTTM de hipotesis.')
-    parser.add_argument('-rp', '--reference_path', type=str, default='E:\Desarrollo\TFM\subtitles\data\rttm_ref', help='Carpeta con los archivos RTTM de referencia.')
+    parser.add_argument('-hp', '--hypotheses_path', type=str, default='E:\\Desarrollo\\TFM\\data\\media\\rttm', help='Carpeta con los archivos RTTM de hipotesis.')
+    parser.add_argument('-rp', '--reference_path', type=str, default='E:\\Desarrollo\\TFM\\subtitles\\data\\rttm_ref', help='Carpeta con los archivos RTTM de referencia.')
     parser.add_argument('-me', '--metrics_list', type=str, help='Lista de Metricas a aplicar')
     parser.add_argument('-out', '--out_met_filename', type=str, default='metrics', help='Nombre del archivo de salida de métricas sin extensión')
     parser.add_argument('-co', '--collar', type=float, help='Collar (Umbral de holgura al principio  al final de cada segmento)')
