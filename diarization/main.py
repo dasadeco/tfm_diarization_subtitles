@@ -40,6 +40,8 @@ if __name__ == '__main__':
     parser.add_argument('-mm', '--msdd_model', type=str, help='Indicamos el nombre del modelo Multiescala Diarization Decoder para NeMo')
     parser.add_argument('-wl', '--window_lengths', type=str, help='Lista de longitudes de ventana para el modelo Multiscale Diarization Decoder para NeMo')    
 
+    parser.add_argument('-eu', "--eval_UNE", action='store_true', help='Si se indica, se realiza la evaluación de las métricas UNE')
+
     parser.add_argument('-hp', '--hypotheses_path', type=str, help='Ruta de la carpeta con archivos rttm hipotesis.') 
     parser.add_argument('-rp', '--reference_path', type=str, help='Ruta de la carpeta con archivos rttm de referencia si disponemos de ellos (necesarios si se selecciona `oracle_vad` en la pipeline NeMo )')    
     parser.add_argument('-me', '--metrics_list', type=str, help='Lista de Metricas de Diarización a aplicar')
@@ -73,11 +75,12 @@ if __name__ == '__main__':
             for di in DockerImages.__members__.values():
                 if di.name.find( args.image_name.lower()) > -1:
                     images_name_list.append(di.value)
-    if not args.no_diarize or args.genera_all_rttm:            
+    if not args.no_diarize or args.genera_all_rttm or args.eval_UNE:            
         dockerManager = DockerDiarizationManager(host_volume_path=args.host_volume_path, container_volume_path=args.container_volume_path, 
-                                             image_name_list=images_name_list)     
+                                             image_name_list=images_name_list) 
+            
     if args.genera_all_rttm:
-        dockerManager.run_converter_rttm_container(image_name='dasaenzd/converter_subtitles:latest', container_name='converter_java_subtitles', delta=args.delta)
+        dockerManager.run_converter_rttm_container(image_name='dasaenzd/manage_subtitles:latest', container_name='converter_subtitles', delta=args.delta)
     
     if not args.no_diarize:    
         params = {}
@@ -154,14 +157,21 @@ if __name__ == '__main__':
             #    params['num_speakers'] = None
                 
             call_manager_to_execute_container(img, params)
-        
-    if args.hypotheses_path is None or not os.path.exists(args.hypotheses_path): 
-        args.hypotheses_path = os.path.join(args.host_volume_path, "rttm")
-        
-    if args.reference_path is None or not os.path.exists(args.reference_path):  #args.reference_path es usada para el cálculo de métricas
-        args.reference_path = os.path.join(os.path.curdir, "subtitles/data/rttm_ref")
-        
-    if args.metrics_list is not None and len(args.metrics_list)>0:
+            
+    #if args.eval_UNE:
+    #    dockerManager.run_evaluator_UNE_container(image_name='dasaenzd/manage_subtitles:latest', container_name='une_evaluator')
+    
+    if args.eval_UNE or args.metrics_list is not None and (args.metrics_list=='all' 
+                                          or len([met for met in args.metrics_list.split(',') if met.startswith("une")]) > 0 ): 
+            dockerManager.run_evaluator_UNE_container(image_name='dasaenzd/manage_subtitles:latest', container_name='une_evaluator')   
+            
+    if args.metrics_list is not None:
+        if args.hypotheses_path is None or not os.path.exists(args.hypotheses_path): 
+            args.hypotheses_path = os.path.join(args.host_volume_path, "rttm")
+            
+        if args.reference_path is None or not os.path.exists(args.reference_path):  #args.reference_path es usada para el cálculo de métricas
+            args.reference_path = os.path.join(os.path.curdir, "subtitles/data/rttm_ref")        
+    
         if os.path.exists(args.hypotheses_path) and os.path.exists(args.reference_path):
             metrics_calc = MetricsCalculator(hypotheses_path=args.hypotheses_path, reference_path = args.reference_path, metrics_list = args.metrics_list, 
                             out_met_filename=args.out_met_filename, collar=args.collar, skip_overlap = args.skip_overlap)

@@ -117,9 +117,9 @@ class DockerDiarizationManager:
             exit(1)
 
    
-    ## En principio este contenedor tiene parámetros fijos, a excepción del valor de delta, se reutiliza `run_container` para ejecutar un contenedor
+    ## En principio este contenedor tiene parámetros fijos, a excepción del valor de delta; se reutiliza `run_container` para ejecutar un contenedor
     ## 
-    def run_converter_rttm_container(self, image_name:str='dasaenzd/converter_java_subtitles:latest', container_name:str='converter_java_subtitles', delta=0.0):
+    def run_converter_rttm_container(self, image_name:str='dasaenzd/manage_subtitles:latest', container_name:str='converter_subtitles', delta=0):
         binding = {}            
         host_volume_converter_path = Path('./subtitles/data').absolute() 
         if not os.path.exists(host_volume_converter_path):
@@ -129,8 +129,28 @@ class DockerDiarizationManager:
         container_volume_converter_path =  '/data'                        
         binding[host_volume_converter_path] = {"bind" : container_volume_converter_path, "mode" : "rw"}  
         image = self._get_or_pull_image(self.client, image_name)
-        self.run_container(image.tags[0], container_name, binding, command="-d="+str(delta), detach=False)
+        self.run_container(image.tags[0], container_name, binding, command="generaAllRTTMRef -d="+str(delta), detach=False)
 
+    ## Este contenedor tiene parámetros fijos, se reutiliza `run_container` para ejecutar un contenedor
+    ## 
+    def run_evaluator_UNE_container(self, image_name:str='dasaenzd/manage_subtitles:latest', container_name:str='une_evaluator'):
+        binding = {}            
+        host_volume_converter_path = Path('./subtitles/data').absolute() 
+        host_volume_media_path = Path('./data/media').absolute() 
+        if not os.path.exists(host_volume_converter_path):
+            print(f"No se ha encontrado la ruta compartida en el host para subtitulos!!: {host_volume_converter_path}")
+            self.logger.error(f"No se ha encontrado la ruta compartida en el host para subtitulos!!: {host_volume_converter_path}")
+            exit(1)
+        if not os.path.exists(host_volume_media_path):
+            print(f"No se ha encontrado la ruta compartida en el host para rttms!!: {host_volume_media_path}")
+            self.logger.error(f"No se ha encontrado la ruta compartida en el host para rttms!!: {host_volume_media_path}")
+            exit(1)            
+        container_volume_converter_path = '/data'
+        container_volume_media_path = '/media'
+        binding[host_volume_converter_path] = {"bind" : container_volume_converter_path, "mode" : "rw"}  
+        binding[host_volume_media_path] = {"bind" : container_volume_media_path, "mode" : "rw"}  
+        image = self._get_or_pull_image(self.client, image_name)
+        self.run_container(image.tags[0], container_name, binding, command="evalAllUne", detach=False)
 
     # Este método puede ejecutar más de un contenedor distinto con sus parámetros correspondientes   
     def execute_command(self, container_name, params:dict): 

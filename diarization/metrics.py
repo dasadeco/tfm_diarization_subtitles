@@ -14,7 +14,7 @@ from pyannote.metrics.diarization import DiarizationErrorRate, DiarizationComple
     DiarizationPurityCoverageFMeasure, GreedyDiarizationErrorRate, JaccardErrorRate
 from pyannote.metrics.detection import DetectionErrorRate, DetectionAccuracy, DetectionCostFunction, DetectionPrecision, DetectionRecall, DetectionPrecisionRecallFMeasure
 from pyannote.metrics.segmentation import SegmentationCoverage, SegmentationPurity, SegmentationPurityCoverageFMeasure, SegmentationPrecision, SegmentationRecall
-from pyannote.metrics.identification import IdentificationErrorRate, IdentificationPrecision, IdentificationRecall
+#from pyannote.metrics.identification import IdentificationErrorRate, IdentificationPrecision, IdentificationRecall
 
 RTTM = "rttm"
 RTTM_REF = "rttm_ref"
@@ -23,6 +23,7 @@ EXECUTION_TIME_FILE = "exec_time.txt"
 EXECUTION_NEMO_TIME_FILE = "NEMO_exec_time.txt"
 EXECUTION_PYANNOTE_TIME_FILE = "PYANNOTE_exec_time.txt"  
 EXECUTION_SPEECHBRAIN_TIME_FILE = "SPEECHBRAIN_exec_time.txt"  
+UNE_METRICS_FILE = "UNE_METRICS.txt"
 
 
 class DatasetEnum(Enum):
@@ -60,8 +61,11 @@ class MetricsEnum(Enum):
   #IdentRec = "Identification Recall"
     # Performance
   RTF = "Real Time Factor"  
+    # UNE compliance
+  une45 = "UNE 4.5" 
+  une64 = "UNE 6.4"
+  une67 = "UNE 6.7"  
   
-    
 class PipelineEnum(Enum):
     PYANNOTE ='Pyannote'
     NEMO ='NeMo' 
@@ -219,8 +223,12 @@ class MetricsCalculator():
                 #case MetricsEnum.IdentPrec.name : metrics_map[ MetricsEnum.IdentPrec.value] = IdentificationPrecision(collar)(reference, hypothesis) if hypothesis is not None and reference is not None else 'NA'
                 #case MetricsEnum.IdentRec.name : metrics_map[ MetricsEnum.IdentRec.value] = IdentificationRecall(collar)(reference, hypothesis) if hypothesis is not None and reference is not None else 'NA'
                 
-                #La métrica de rendimiento lleva un proceso totalmente distinto
+                #La métrica de rendimiento y las de cumplimiento UNE llevan un proceso totalmente distinto
                 case MetricsEnum.RTF.name : metrics_map[MetricsEnum.RTF.value] = self._calcula_ratio(rttms_hyp_path, dataset_subfolder_path, combin_model_subfold, rttm_file, pipeline) if hypothesis is not None else 'NA'
+                case MetricsEnum.une45.name : metrics_map[MetricsEnum.une45.value] = self._get_une_metrics(rttms_hyp_path, dataset_subfolder_path, combin_model_subfold, rttm_file, MetricsEnum.une45.name) if hypothesis is not None else 'NA'
+                case MetricsEnum.une64.name : metrics_map[MetricsEnum.une64.value] = self._get_une_metrics(rttms_hyp_path, dataset_subfolder_path, combin_model_subfold, rttm_file, MetricsEnum.une64.name) if hypothesis is not None else 'NA'
+                case MetricsEnum.une67.name : metrics_map[MetricsEnum.une67.value] = self._get_une_metrics(rttms_hyp_path, dataset_subfolder_path, combin_model_subfold, rttm_file, MetricsEnum.une67.name) if hypothesis is not None else 'NA'
+                
         mbaf = MetricsByAudioFile(rttm_file, combin_model_subfold.split('__')[1].split('+')[0], VAD_Models._.value, combin_model_subfold.split('__')[1].split('+')[1], metrics_map, dataset) if pipeline == PipelineEnum.PYANNOTE.name \
             else MetricsByAudioFile(rttm_file, PipelineVersions._.value, combin_model_subfold.split('__')[1].split('+')[0], combin_model_subfold.split('__')[1].split('+')[1], metrics_map, dataset) if pipeline == PipelineEnum.NEMO.name \
             else None    
@@ -270,7 +278,7 @@ class MetricsCalculator():
         wb.save(export_path)
         
         
-    ## Buscamos el archivo en el que está guardado el tiempo de ejecución del archivo de ese dataset usando ese modelo    
+    ## Buscamos en el archivo en el que están guardados los tiempos de ejecución, el de dataset usando ese modelo    
     def _calcula_ratio(self, base_rttms_hyp_path, dataset_subfolder_path, combined_model, rttm_file, pipeline:str):        
         rtf = 'NA'   
         exec_file_path = os.path.join(base_rttms_hyp_path, pipeline + '_' + EXECUTION_TIME_FILE)
@@ -287,6 +295,26 @@ class MetricsCalculator():
             self.logger.info(f"Ratio de procesamiento del audio {rttm_file.replace('.rttm', '')}: {str(rtf)}")
             print(f"Ratio de procesamiento del audio {rttm_file.replace('.rttm', '')}: {str(rtf)}")          
         return rtf
+    
+    
+    ## Buscamos en el archivo de metricas de cumplimiento UNE los resultados de la diarización con unos modelos de un dataset para un rttm file  
+    def _get_une_metrics(self, base_rttms_hyp_path, dataset_subfolder_path, combined_model, rttm_file, specific_une):        
+        une_file_path = os.path.join(base_rttms_hyp_path, UNE_METRICS_FILE)
+        dataset = os.path.basename(dataset_subfolder_path)
+        une_result:str = 'NA'
+        with open(une_file_path, 'r', encoding="utf-8") as exec_file:
+            for line in exec_file:
+                word = line.rstrip().split(" ")
+                if rttm_file == word[0] and combined_model == word[1] and dataset == word[2]:
+                    match specific_une:
+                        case MetricsEnum.une45.name: une_result = word[3].split('=')[1]
+                        case MetricsEnum.une64.name: une_result = word[4].split('=')[1]
+                        case MetricsEnum.une67.name: une_result = word[5].split('=')[1]
+                    break
+        if rttm_file == word[0] and combined_model == word[1] and dataset == word[2]:
+            self.logger.info(f"Cumplimiento UNE {specific_une} del audio {rttm_file.replace('.rttm', '')}: {une_result}")
+            print(f"Cumplimiento UNE {specific_une} del audio {rttm_file.replace('.rttm', '')}: {une_result}")
+        return  float(une_result) if une_result != "NA" else une_result     
             
 
 if __name__ == '__main__':
