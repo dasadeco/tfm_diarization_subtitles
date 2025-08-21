@@ -153,16 +153,11 @@ if __name__ == '__main__':
                     print("Número de speakers debe ser un entero!")
                 else:    
                     params['num_speakers'] = str(args.num_speakers)  
-            #else:        
-            #    params['num_speakers'] = None
                 
             call_manager_to_execute_container(img, params)
             
-    #if args.eval_UNE:
-    #    dockerManager.run_evaluator_UNE_container(image_name='dasaenzd/manage_subtitles:latest', container_name='une_evaluator')
-    
     if args.eval_UNE or args.metrics_list is not None and (args.metrics_list=='all' 
-                                          or len([met for met in args.metrics_list.split(',') if met.startswith("une")]) > 0 ): 
+                                          or len([met for met in args.metrics_list.split(',') if met.strip().startswith("une")]) > 0 ): 
             dockerManager.run_evaluator_UNE_container(image_name='dasaenzd/manage_subtitles:latest', container_name='une_evaluator')   
             
     if args.metrics_list is not None:

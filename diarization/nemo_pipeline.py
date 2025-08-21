@@ -7,7 +7,7 @@ from omegaconf import OmegaConf
 import wget
 import numpy as np
 from nemo.collections.asr.models import ClusteringDiarizer
-from nemo_import import VADModels as VADModels
+from nemo_import import MSDDModels, VADModels
 from pydub import AudioSegment
 import torch
 
@@ -195,8 +195,11 @@ if __name__ == '__main__':
                 #config.diarizer.vad.parameters.offset = 0.6
                 #config.diarizer.vad.parameters.pad_offset = -0.05
                 #config.diarizer.vad.parameters.min_duration_on = 0.5 # Threshold for short speech segment deletion
-                config.diarizer.vad.parameters.min_duration_off = args.min_duration_off # Threshold for small non_speech deletion                
-
+                config.diarizer.vad.parameters.min_duration_off = args.min_duration_off # Threshold for small non_speech deletion
+            
+            # Solución para evitar el crash por excesivas ventanasmóviles en el MSDD de Meeting    
+            if args.msdd_model == MSDDModels.MEETING.model:                
+                config.diarizer.vad.parameters.shift_length_in_sec = 0.08
             start_time = time.time()
             ##### INICIO DE LA DIARIZACION ###########
             oracle_vad_clusdiar_model = ClusteringDiarizer(cfg=config)            
