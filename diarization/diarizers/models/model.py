@@ -1,4 +1,4 @@
-# Copied "AS IS" from https://github.com/huggingface/diarizers/blob/main/src/diarizers/models/model.py
+## Copied "AS IS" from https://github.com/huggingface/diarizers/blob/main/src/diarizers/models/model.py
 ## Diarizers is a library for fine-tuning pyannote speaker diarization models using the Hugging Face ecosystem. 
 ## It can be used to improve performance on both English and multilingual diarization datasets with simple example scripts, 
 ## with as little as ten hours of labelled diarization data and just 5 minutes of GPU compute time.
