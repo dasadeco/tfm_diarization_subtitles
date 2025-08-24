@@ -670,5 +670,5 @@ if __name__ == "__main__":
     ref_rttm_file = args.ref_rttm_fns
     hyp_rttm_file = args.hyp_rttm_fns    
         
-    jer, ser, ber = main(ref_rttm_file, hyp_rttm_file)
+    jer, ser, ber = get_jer_ser_ber(ref_rttm_file, hyp_rttm_file)
     print(f"JER:{jer}  SER:{ser}  BER:{ber}")

@@ -17,6 +17,7 @@ from pyannote.metrics.segmentation import SegmentationCoverage, SegmentationPuri
 #from pyannote.metrics.identification import IdentificationErrorRate, IdentificationPrecision, IdentificationRecall
 
 from x_lance.score import get_jer_ser_ber
+from speechclub.score import get_cder
 
 RTTM = "rttm"
 RTTM_REF = "rttm_ref"
@@ -59,7 +60,8 @@ class MetricsEnum(Enum):
   JER = "Jaccard Error Rate"
     # Other diarization metrics
   SER = "Segment Error Rate"
-  BER = "Balanced Error Rate"  
+  BER = "Balanced Error Rate"
+  CDER = "Conversational Diarization Error Rate"  
     # Fourth Step
   #IER = "Identification Error Rate"
   #IdentPrec = "Identification Precision" 
@@ -203,7 +205,8 @@ class MetricsCalculator():
         if collar is None:
             collar = 0.0 
         metrics_map = {}
-        _, ser, ber = get_jer_ser_ber(ref_rttm_file_path, hyp_rttm_file_path)                                        
+        _, ser, ber = get_jer_ser_ber(ref_rttm_file_path, hyp_rttm_file_path)
+        cder = get_cder(ref_rttm_file_path, hyp_rttm_file_path)
         for metric in metrics:
             metric = metric.strip()        
             match metric:
@@ -231,6 +234,7 @@ class MetricsCalculator():
                 #La métrica BER y SER son calculadas en código externo del SJTU Cross Media Language Intelligence Lab de china
                 case MetricsEnum.SER.name: metrics_map[ MetricsEnum.SER.value] = ser if hypothesis is not None and reference is not None else 'NA'
                 case MetricsEnum.BER.name: metrics_map[ MetricsEnum.BER.value] = ber if hypothesis is not None and reference is not None else 'NA'
+                case MetricsEnum.CDER.name: metrics_map[ MetricsEnum.CDER.value] = cder if hypothesis is not None and reference is not None else 'NA'
                 #La métrica de rendimiento y las de cumplimiento UNE llevan un proceso totalmente distinto
                 case MetricsEnum.RTF.name : metrics_map[MetricsEnum.RTF.value] = self._calcula_ratio(rttms_hyp_path, dataset_subfolder_path, combin_model_subfold, rttm_file, pipeline) if hypothesis is not None else 'NA'
                 case MetricsEnum.une45.name : metrics_map[MetricsEnum.une45.value] = self._get_une_metrics(rttms_hyp_path, dataset_subfolder_path, combin_model_subfold, rttm_file, MetricsEnum.une45.name) if hypothesis is not None else 'NA'
@@ -275,7 +279,7 @@ class MetricsCalculator():
         ws.column_dimensions['D'].width = 20
         ws.column_dimensions['E'].width = 30
         for letter in string.ascii_uppercase[5:]:
-            ws.column_dimensions[letter].width = 27
+            ws.column_dimensions[letter].width = 30
             
         odd_fill = PatternFill(fills.FILL_PATTERN_MEDIUMGRAY)               
         for number in range(2, len(index)+2):        
