@@ -177,7 +177,7 @@ class MetricsCalculator():
             
         
   
-    def executeMetrics(self, metrics:list, rttms_hyp_path, dataset_subfolder_path, combin_model_subfold, rttm_file, rttms_ref_path, pipeline, collar=COLLAR, skip_overlap=False):
+    def executeMetrics(self, metrics_list:list, rttms_hyp_path, dataset_subfolder_path, combin_model_subfold, rttm_file, rttms_ref_path, pipeline, collar=COLLAR, skip_overlap=False):
         
         def _create_annot(file:FileIO, annot:Annotation)->Annotation:              
             for line in file:
@@ -205,10 +205,12 @@ class MetricsCalculator():
         if collar is None:
             collar = 0.0 
         metrics_map = {}
-        _, ser, ber = get_jer_ser_ber(ref_rttm_file_path, hyp_rttm_file_path)
-        cder = get_cder(ref_rttm_file_path, hyp_rttm_file_path)
-        for metric in metrics:
-            metric = metric.strip()        
+        metrics_list =[metric.strip() for metric in metrics_list]            
+        if MetricsEnum.SER.name in metrics_list or MetricsEnum.BER.name in metrics_list:
+            _, ser, ber = get_jer_ser_ber(ref_rttm_file_path, hyp_rttm_file_path)
+        if MetricsEnum.CDER.name in metrics_list in metrics_list:    
+            cder = get_cder(ref_rttm_file_path, hyp_rttm_file_path)        
+        for metric in metrics_list:
             match metric:
                 case MetricsEnum.DetAcc.name : metrics_map[ MetricsEnum.DetAcc.value] = DetectionAccuracy(collar, skip_overlap)(reference, hypothesis) if hypothesis is not None and reference is not None else 'NA'
                 case MetricsEnum.DetCost.name : metrics_map[ MetricsEnum.DetCost.value] = DetectionCostFunction(collar, skip_overlap)(reference, hypothesis) if hypothesis is not None and reference is not None else 'NA'
