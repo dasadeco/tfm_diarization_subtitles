@@ -206,10 +206,9 @@ class MetricsCalculator():
             collar = 0.0 
         metrics_map = {}
         metrics_list =[metric.strip() for metric in metrics_list]            
+        ser, ber = 0.0, 0.0 
         if MetricsEnum.SER.name in metrics_list or MetricsEnum.BER.name in metrics_list:
-            _, ser, ber = get_jer_ser_ber(ref_rttm_file_path, hyp_rttm_file_path)
-        if MetricsEnum.CDER.name in metrics_list in metrics_list:    
-            cder = get_cder(ref_rttm_file_path, hyp_rttm_file_path)        
+            _, ser, ber = get_jer_ser_ber(ref_rttm_file_path, hyp_rttm_file_path)            
         for metric in metrics_list:
             match metric:
                 case MetricsEnum.DetAcc.name : metrics_map[ MetricsEnum.DetAcc.value] = DetectionAccuracy(collar, skip_overlap)(reference, hypothesis) if hypothesis is not None and reference is not None else 'NA'
@@ -236,7 +235,7 @@ class MetricsCalculator():
                 #La métrica BER y SER son calculadas en código externo del SJTU Cross Media Language Intelligence Lab de china
                 case MetricsEnum.SER.name: metrics_map[ MetricsEnum.SER.value] = ser if hypothesis is not None and reference is not None else 'NA'
                 case MetricsEnum.BER.name: metrics_map[ MetricsEnum.BER.value] = ber if hypothesis is not None and reference is not None else 'NA'
-                case MetricsEnum.CDER.name: metrics_map[ MetricsEnum.CDER.value] = cder if hypothesis is not None and reference is not None else 'NA'
+                case MetricsEnum.CDER.name: metrics_map[ MetricsEnum.CDER.value] = get_cder(ref_rttm_file_path, hyp_rttm_file_path) if hypothesis is not None and reference is not None else 'NA'
                 #La métrica de rendimiento y las de cumplimiento UNE llevan un proceso totalmente distinto
                 case MetricsEnum.RTF.name : metrics_map[MetricsEnum.RTF.value] = self._calcula_ratio(rttms_hyp_path, dataset_subfolder_path, combin_model_subfold, rttm_file, pipeline) if hypothesis is not None else 'NA'
                 case MetricsEnum.une45.name : metrics_map[MetricsEnum.une45.value] = self._get_une_metrics(rttms_hyp_path, dataset_subfolder_path, combin_model_subfold, rttm_file, MetricsEnum.une45.name) if hypothesis is not None else 'NA'
@@ -316,18 +315,19 @@ class MetricsCalculator():
         une_file_path = os.path.join(base_rttms_hyp_path, UNE_METRICS_FILE)
         dataset = os.path.basename(dataset_subfolder_path)
         une_result:str = 'NA'
-        with open(une_file_path, 'r', encoding="utf-8") as exec_file:
-            for line in exec_file:
-                word = line.rstrip().split(" ")
-                if rttm_file == word[0] and combined_model == word[1] and dataset == word[2]:
-                    match specific_une:
-                        case MetricsEnum.une45.name: une_result = word[3].split('=')[1]
-                        case MetricsEnum.une64.name: une_result = word[4].split('=')[1]
-                        case MetricsEnum.une67.name: une_result = word[5].split('=')[1]
-                    break
-        if rttm_file == word[0] and combined_model == word[1] and dataset == word[2]:
-            self.logger.info(f"Cumplimiento UNE {specific_une} del audio {rttm_file.replace('.rttm', '')}: {une_result}")
-            print(f"Cumplimiento UNE {specific_une} del audio {rttm_file.replace('.rttm', '')}: {une_result}")
+        if os.path.exists(une_file_path):
+            with open(une_file_path, 'r', encoding="utf-8") as exec_file:
+                for line in exec_file:
+                    word = line.rstrip().split(" ")
+                    if rttm_file == word[0] and combined_model == word[1] and dataset == word[2]:
+                        match specific_une:
+                            case MetricsEnum.une45.name: une_result = word[3].split('=')[1]
+                            case MetricsEnum.une64.name: une_result = word[4].split('=')[1]
+                            case MetricsEnum.une67.name: une_result = word[5].split('=')[1]
+                        break
+            if rttm_file == word[0] and combined_model == word[1] and dataset == word[2]:
+                self.logger.info(f"Cumplimiento UNE {specific_une} del audio {rttm_file.replace('.rttm', '')}: {une_result}")
+                print(f"Cumplimiento UNE {specific_une} del audio {rttm_file.replace('.rttm', '')}: {une_result}")
         return  float(une_result) if une_result != "NA" else une_result     
             
 

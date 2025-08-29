@@ -197,11 +197,11 @@ class DockerDiarizationManager:
                 cmd_list.extend([ "--min_duration_off", params['min_duration_off'] ])
             if 'num_speakers' in params and params['num_speakers'] is not None:
                 cmd_list.extend([ "--num_speakers", params['num_speakers'] ])
-            exec_command = self.client.api.exec_create(self.containers[container_name].id, cmd_list)    
+            exec_command = self.client.api.exec_create(self.containers[container_name].id, cmd_list, privileged=True,)    
             
-            self.client.api.exec_start(exec_command['Id'], detach=False)
-            print(f"Ejecutando comando: {exec_command} en contenedor {self.containers[container_name].name} ...")    
+            print(f"Ejecutando comando: {exec_command} en contenedor {self.containers[container_name].name} ...")
             self.logger.info(f"Ejecutando comando: {exec_command} en contenedor {self.containers[container_name].name} ...")            
+            self.client.api.exec_start(exec_command['Id'], detach=True, demux=True)            
 
             self._check_status_file(container_name)         
             self.stop_if_running(self.containers[container_name].name)                        
